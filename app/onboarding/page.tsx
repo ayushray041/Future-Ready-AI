@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, ArrowRight, ArrowLeft, Loader2, Zap, Target, BookOpen, Star, Rocket } from 'lucide-react';
+import { createUser } from '@/services/user.service';
+import { useAuth } from '@/hooks/useAuth';
+import { updateUser } from '@/services/user.service';
 
 const SKILLS = [
   'Python', 'JavaScript', 'TypeScript', 'React', 'Node.js', 'Next.js',
@@ -30,6 +33,7 @@ const STEPS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { firebaseUser } = useAuth();
   const [step, setStep] = useState(0);
   const [goals, setGoals] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
@@ -44,10 +48,24 @@ export default function OnboardingPage() {
   }
 
   async function finish() {
-    setLoading(true);
-    await new Promise(r => setTimeout(r, 900));
+  if (!firebaseUser) return;
+
+  setLoading(true);
+
+  try {
+    await updateUser(firebaseUser.uid, {
+      goals,
+      skills,
+      salaryExpectation: salary,
+    });
+
     router.push('/dashboard');
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setLoading(false);
   }
+}
 
   const progress = ((step + 1) / STEPS.length) * 100;
 
@@ -91,8 +109,8 @@ export default function OnboardingPage() {
           {/* Step 0 — Goals */}
           {step === 0 && (
             <div>
-              <h2 className="text-xl font-bold text-white mb-1">What's your primary goal?</h2>
-              <p className="text-sm text-slate-400 mb-6">Select all that apply — we'll tailor your roadmap.</p>
+              <h2 className="text-xl font-bold text-white mb-1">What&apos;s your primary goal?</h2>
+              <p className="text-sm text-slate-400 mb-6">Select all that apply — we&apos;ll tailor your roadmap.</p>
               <div className="grid grid-cols-2 gap-3">
                 {GOALS.map(g => (
                   <button key={g.id} onClick={() => toggleGoal(g.id)}
@@ -113,7 +131,7 @@ export default function OnboardingPage() {
           {step === 1 && (
             <div>
               <h2 className="text-xl font-bold text-white mb-1">What do you already know?</h2>
-              <p className="text-sm text-slate-400 mb-6">We'll skip what you've mastered and focus on gaps.</p>
+              <p className="text-sm text-slate-400 mb-6">We&apos;ll skip what you&apos;ve mastered and focus on gaps.</p>
               <div className="flex flex-wrap gap-2">
                 {SKILLS.map(s => (
                   <button key={s} onClick={() => toggleSkill(s)}
@@ -156,9 +174,9 @@ export default function OnboardingPage() {
                 flex items-center justify-center mx-auto mb-5 ring-1 ring-cyan-500/30">
                 <Rocket className="h-8 w-8 text-cyan-400" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">You're all set! 🎉</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">You&apos;re all set! 🎉</h2>
               <p className="text-sm text-slate-400 mb-6">
-                Your AI career OS is ready. We've built a personalized roadmap based on your goals,
+                Your AI career OS is ready. We&apos;ve built a personalized roadmap based on your goals,
                 skills, and expectations.
               </p>
               <div className="bg-white/5 rounded-xl p-4 text-left space-y-2 mb-6">

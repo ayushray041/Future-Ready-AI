@@ -137,7 +137,7 @@ export default function MentorPage() {
                     Hi {profile?.displayName?.split(' ')[0] ?? 'there'} 👋
                   </h3>
                   <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
-                    I'm your AI Mentor. I know your profile, career goals, and skill gaps.
+                    I&apos;m your AI Mentor. I know your profile, career goals, and skill gaps.
                     Ask me anything about your career journey.
                   </p>
                   <div className="mt-5 grid grid-cols-2 gap-2 w-full max-w-sm">

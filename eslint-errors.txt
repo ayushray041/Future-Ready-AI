@@ -1,0 +1,140 @@
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/analytics/page.tsx
+  5:3  warning  'LineChart' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/career-twin/page.tsx
+   5:3   warning  'Users' is defined but never used      @typescript-eslint/no-unused-vars
+   5:27  warning  'Target' is defined but never used     @typescript-eslint/no-unused-vars
+   6:30  warning  'Brain' is defined but never used      @typescript-eslint/no-unused-vars
+   6:43  warning  'Lock' is defined but never used       @typescript-eslint/no-unused-vars
+   7:3   warning  'BarChart2' is defined but never used  @typescript-eslint/no-unused-vars
+   7:14  warning  'Globe' is defined but never used      @typescript-eslint/no-unused-vars
+  13:58  warning  'BarChart' is defined but never used   @typescript-eslint/no-unused-vars
+  13:68  warning  'Bar' is defined but never used        @typescript-eslint/no-unused-vars
+  13:73  warning  'Cell' is defined but never used       @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/dashboard/page.tsx
+   5:3   warning  'TrendingUp' is defined but never used   @typescript-eslint/no-unused-vars
+   5:28  warning  'Users' is defined but never used        @typescript-eslint/no-unused-vars
+   7:13  warning  'Award' is defined but never used        @typescript-eslint/no-unused-vars
+  40:6   warning  'AccentColor' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/interview/page.tsx
+  5:30  warning  'BarChart2' is defined but never used  @typescript-eslint/no-unused-vars
+  6:32  warning  'Square' is defined but never used     @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/mentor/page.tsx
+  140:22  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/resume/page.tsx
+  102:19  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/resume/page.tsx:102:19
+  100 |
+  101 |   useEffect(() => {
+> 102 |     if (analysis) setActiveId(analysis.id);
+      |                   ^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  103 |   }, [analysis]);
+  104 |
+  105 |   // Default target role to user's target career                                                                                                react-hooks/set-state-in-effect
+  107:32  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/resume/page.tsx:107:32
+  105 |   // Default target role to user's target career
+  106 |   useEffect(() => {
+> 107 |     if (profile?.targetCareer) setTargetRole(profile.targetCareer);
+      |                                ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  108 |   }, [profile?.targetCareer]);
+  109 |
+  110 |   async function handleFile(file: File) {  react-hooks/set-state-in-effect
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/(dashboard)/settings/page.tsx
+  6:31  warning  'ChevronRight' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/app/onboarding/page.tsx
+   94:69  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+   95:84  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  116:60  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  116:77  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  159:69  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  161:47  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/Users/ayush/futureready-ai/Future-Ready-AI/components/dashboard-cards.tsx
+  3:39  warning  'Zap' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/hooks/useCareerScore.ts
+  10:17  warning  'setScore' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  11:19  warning  'setLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  13:31  warning  '_userId' is defined but never used              @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/hooks/useMentor.ts
+  116:33  error  Compilation Skipped: Existing memoization could not be preserved
+
+React Compiler has skipped optimizing this component because the existing manual memoization could not be preserved. The inferred dependencies did not match the manually specified dependencies, which could cause the value to change more or less frequently than expected. The inferred dependency was `profile`, but the source dependencies were [profile?.uid]. Inferred less specific property than source.
+
+/Users/ayush/futureready-ai/Future-Ready-AI/hooks/useMentor.ts:116:33
+  114 |
+  115 |   // ── Clear / reset ──────────────────────────────────────────
+> 116 |   const clearChat = useCallback(async () => {
+      |                                 ^^^^^^^^^^^^^
+> 117 |     setMessages([]);
+      | ^^^^^^^^^^^^^^^^^^^^
+> 118 |     setError('');
+      | ^^^^^^^^^^^^^^^^^^^^
+> 119 |     if (sessionRef.current && profile?.uid) {
+      | ^^^^^^^^^^^^^^^^^^^^
+> 120 |       await resetSession(sessionRef.current.id, profile.uid);
+      | ^^^^^^^^^^^^^^^^^^^^
+> 121 |     }
+      | ^^^^^^^^^^^^^^^^^^^^
+> 122 |   }, [profile?.uid]);
+      | ^^^^ Could not preserve existing manual memoization
+  123 |
+  124 |   return { messages, loading, error, sessionReady, sendMessage, clearChat, initSession };
+  125 | }  react-hooks/preserve-manual-memoization
+
+/Users/ayush/futureready-ai/Future-Ready-AI/hooks/useRoadmap.ts
+  11:19  warning  'setRoadmap' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  12:19  warning  'setLoading' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  14:30  warning  '_userId' is defined but never used              @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/lib/permissions.ts
+  7:37  warning  '_token' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/services/auth.service.ts
+   7:16  warning  '_email' is defined but never used     @typescript-eslint/no-unused-vars
+   7:32  warning  '_password' is defined but never used  @typescript-eslint/no-unused-vars
+  10:16  warning  '_email' is defined but never used     @typescript-eslint/no-unused-vars
+  10:32  warning  '_password' is defined but never used  @typescript-eslint/no-unused-vars
+  16:23  warning  '_email' is defined but never used     @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/services/firestore.service.ts
+  6:24  warning  'updateDoc' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/services/gemini.service.ts
+  7:26  warning  '_prompt' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/services/github.service.ts
+  6:22  warning  '_username' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/services/mentor.service.ts
+  5:10  warning  'fsGet' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/ayush/futureready-ai/Future-Ready-AI/services/roadmap.service.ts
+   8:20  warning  '_userId' is defined but never used   @typescript-eslint/no-unused-vars
+  11:21  warning  '_roadmap' is defined but never used  @typescript-eslint/no-unused-vars
+
+✖ 46 problems (10 errors, 36 warnings)
+

@@ -4,6 +4,8 @@ import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Zap, ArrowRight, Loader2, Check } from 'lucide-react';
+import { authService } from '@/services/auth.service';
+import { createUser } from '@/services/user.service';
 
 const CAREER_OPTIONS = [
   'AI Engineer', 'Software Engineer', 'Data Scientist',
@@ -68,10 +70,35 @@ export default function SignupPage() {
     setFirebaseError('');
     setLoading(true);
     try {
-      // authService.signUp + firestoreService.setDoc('users', uid, profile)
-      await new Promise(r => setTimeout(r, 1000));
-      router.push('/onboarding');
-    } catch (err: unknown) {
+  const cred = await authService.signUp(
+  form.email,
+  form.password
+);
+
+await createUser({
+  uid: cred.user.uid,
+  displayName: form.name,
+  email: form.email,
+
+  college: form.college,
+  year: form.year,
+  branch: form.branch,
+
+  targetCareer: form.career,
+
+  salaryExpectation: '',
+  skills: [],
+  goals: [],
+
+  careerScore: 0,
+  streak: 0,
+
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+router.push('/onboarding');
+} catch (err: unknown) {
       setFirebaseError(err instanceof Error ? err.message : 'Registration failed. Try again.');
     } finally {
       setLoading(false);

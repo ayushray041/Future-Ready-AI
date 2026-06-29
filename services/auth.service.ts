@@ -1,19 +1,26 @@
-// services/auth.service.ts
-// Responsibility: All Firebase Authentication operations (sign-in, sign-up,
-// sign-out, password reset). Never called from components directly — use
-// hooks/useAuth.ts instead.
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+} from 'firebase/auth';
+
+import { auth } from '@/lib/firebase';
 
 export const authService = {
-  async signIn(_email: string, _password: string): Promise<void> {
-    // Module 2: import { signInWithEmailAndPassword } from 'firebase/auth'
+  async signIn(email: string, password: string) {
+    return signInWithEmailAndPassword(auth, email, password);
   },
-  async signUp(_email: string, _password: string): Promise<void> {
-    // Module 2: createUserWithEmailAndPassword
+
+  async signUp(email: string, password: string) {
+    return createUserWithEmailAndPassword(auth, email, password);
   },
-  async signOut(): Promise<void> {
-    // Module 2: signOut
+
+  async signOut() {
+    return signOut(auth);
   },
-  async resetPassword(_email: string): Promise<void> {
-    // Module 2: sendPasswordResetEmail
+
+  async resetPassword(email: string) {
+    return sendPasswordResetEmail(auth, email);
   },
 };

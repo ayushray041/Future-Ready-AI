@@ -97,16 +97,23 @@ export default function ResumePage() {
   useEffect(() => {
     if (uid) loadHistory(uid);
   }, [uid, loadHistory]);
-
+/*
   useEffect(() => {
-    if (analysis) setActiveId(analysis.id);
-  }, [analysis]);
+  if (analysis && activeId !== analysis.id) {
+    setActiveId(analysis.id);
+  }
+}, [analysis, activeId]);
 
   // Default target role to user's target career
   useEffect(() => {
-    if (profile?.targetCareer) setTargetRole(profile.targetCareer);
-  }, [profile?.targetCareer]);
-
+  if (
+    profile?.targetCareer &&
+    targetRole !== profile.targetCareer
+  ) {
+    setTargetRole(profile.targetCareer);
+  }
+}, [profile?.targetCareer, targetRole]);
+*/
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       alert('Please upload a PDF file.');

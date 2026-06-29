@@ -119,7 +119,7 @@ export function useMentor(profile: UserProfile | null): UseMentorReturn {
     if (sessionRef.current && profile?.uid) {
       await resetSession(sessionRef.current.id, profile.uid);
     }
-  }, [profile?.uid]);
+  }, [profile]);
 
   return { messages, loading, error, sessionReady, sendMessage, clearChat, initSession };
 }
