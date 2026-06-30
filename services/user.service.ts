@@ -20,3 +20,10 @@ export async function updateUser(
 ): Promise<void> {
   await fsMerge(COL, uid, { uid, ...data });
 }
+
+export async function saveUser(
+  uid: string,
+  data: Partial<Omit<UserProfile, 'uid'>>
+): Promise<void> {
+  await fsMerge(COL, uid, { uid, ...data });
+}
