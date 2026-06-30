@@ -13,6 +13,7 @@ import PageHeader     from '@/components/shared/PageHeader';
 import { useResume }      from '@/hooks/useResume';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { ResumeAnalysis } from '@/types';
+import { error } from 'console';
 
 const TARGET_ROLES = [
   'AI Engineer', 'Software Engineer', 'Data Scientist', 'ML Engineer',
@@ -81,15 +82,31 @@ function HistoryItem({
 }
 
 export default function ResumePage() {
-  const { firebaseUser, profile } = useAuthContext();
-  const { analysis, history, loading, error, analyzeFile, loadHistory, selectItem } = useResume();
+  const { firebaseUser, profile, loading: authLoading } = useAuthContext();
 
+  const {
+    analysis,
+    history,
+    loading,
+    error,
+    analyzeFile,
+    loadHistory,
+    selectItem,
+  } = useResume();
   const [dragOver,    setDragOver]    = useState(false);
   const [activeId,    setActiveId]    = useState<string | null>(null);
   const [targetRole,  setTargetRole]  = useState('AI Engineer');
   const inputRef = useRef<HTMLInputElement>(null);
 
   const uid       = firebaseUser?.uid ?? '';
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+      </div>
+    );
+  }
+
   const displayed = activeId
     ? (history.find(h => h.id === activeId) ?? analysis)
     : analysis;
@@ -97,7 +114,7 @@ export default function ResumePage() {
   useEffect(() => {
     if (uid) loadHistory(uid);
   }, [uid, loadHistory]);
-/*
+
   useEffect(() => {
   if (analysis && activeId !== analysis.id) {
     setActiveId(analysis.id);
@@ -113,7 +130,7 @@ export default function ResumePage() {
     setTargetRole(profile.targetCareer);
   }
 }, [profile?.targetCareer, targetRole]);
-*/
+
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
       alert('Please upload a PDF file.');

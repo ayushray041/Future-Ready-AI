@@ -1,26 +1,26 @@
 'use client';
 
-import { useState } from 'react';
 import {
-  TrendingUp, Zap, Target, Users, FileText,
-  Mic, CheckCircle, Clock, ArrowRight, Star,
-  BookOpen, Award, Activity,
+  Zap,
+  Target,
+  FileText,
+  Mic,
+  CheckCircle,
+  Clock,
+  ArrowRight,
+  Star,
+  BookOpen,
+  Activity,
+  Loader2,
+  Briefcase,
 } from 'lucide-react';
+
 import StatCard from '@/components/shared/StatCard';
 import GlassCard from '@/components/shared/GlassCard';
 import PageHeader from '@/components/shared/PageHeader';
-import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer, LineChart, Line, Tooltip, XAxis } from 'recharts';
+import { RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
-
-const radarData = [
-  { skill: 'DSA', A: 82 }, { skill: 'Dev', A: 74 }, { skill: 'AI/ML', A: 65 },
-  { skill: 'Cloud', A: 55 }, { skill: 'Comm', A: 48 }, { skill: 'Resume', A: 70 },
-];
-
-const trendData = [
-  { m: 'Jan', v: 45 }, { m: 'Feb', v: 52 }, { m: 'Mar', v: 58 },
-  { m: 'Apr', v: 63 }, { m: 'May', v: 70 }, { m: 'Jun', v: 74 },
-];
+import { useAuth } from '@/hooks/useAuth';
 
 const ACTIVITY = [
   { icon: CheckCircle, color: 'text-emerald-400', text: 'Completed "Arrays & Hashing" module', time: '2h ago' },
@@ -47,15 +47,36 @@ const colorMap: Record<string, { bg: string; text: string }> = {
 };
 
 export default function DashboardPage() {
-  const [greeting] = useState(() => {
+  const { profile, loading } = useAuth();
+
+  const greeting = (() => {
     const h = new Date().getHours();
     return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-  });
+  })();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-32">
+        <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
+      </div>
+    );
+  }
+
+  const careerScore = profile?.careerScore ?? 0;
+  const streak       = profile?.streak ?? 0;
+  const skillsCount  = profile?.skills.length ?? 0;
+  const goalsCount   = profile?.goals.length ?? 0;
+  const firstName    = profile?.displayName?.split(' ')[0] ?? 'there';
+
+  const radarData = (profile?.skills.length
+    ? profile.skills.slice(0, 6)
+    : ['DSA', 'Dev', 'AI/ML', 'Cloud', 'Comm', 'Resume']
+  ).map(skill => ({ skill, A: careerScore }));
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title={`${greeting}, Ayush 👋`}
+        title={`${greeting}, ${firstName} 👋`}
         description="Here's your career snapshot for today."
         badge="AI Career OS"
         action={
@@ -69,10 +90,10 @@ export default function DashboardPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Career Score"    value="74"   sub="out of 100"     icon={Activity}  color="cyan"    trend={{ value: '+8 this month', up: true }} />
-        <StatCard title="Streak"          value="14"   sub="days active"    icon={Zap}       color="amber"   trend={{ value: '+2 days', up: true }} />
-        <StatCard title="Skills Mapped"   value="12"   sub="of 18 targets"  icon={BookOpen}  color="emerald" />
-        <StatCard title="Applications"    value="6"    sub="this semester"  icon={Briefcase} color="blue"    trend={{ value: '+3 this week', up: true }} />
+        <StatCard title="Career Score"  value={careerScore}  sub="out of 100"    icon={Activity}  color="cyan"    />
+        <StatCard title="Streak"        value={streak}       sub="days active"   icon={Zap}       color="amber"   />
+        <StatCard title="Skills Mapped" value={skillsCount}  sub="tracked"       icon={BookOpen}  color="emerald" />
+        <StatCard title="Goals Set"     value={goalsCount}   sub="career goals"  icon={Briefcase} color="blue"    />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -87,7 +108,7 @@ export default function DashboardPage() {
                 <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="10" />
                 <circle cx="60" cy="60" r="50" fill="none"
                   stroke="url(#g1)" strokeWidth="10" strokeLinecap="round"
-                  strokeDasharray={`${(74 / 100) * 314} 314`} />
+                  strokeDasharray={`${(careerScore / 100) * 314} 314`} />
                 <defs>
                   <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stopColor="#06b6d4" />
@@ -96,7 +117,7 @@ export default function DashboardPage() {
                 </defs>
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-white">74</span>
+                <span className="text-3xl font-bold text-white">{careerScore}</span>
                 <span className="text-xs text-slate-500">/ 100</span>
               </div>
             </div>
@@ -112,32 +133,16 @@ export default function DashboardPage() {
           </ResponsiveContainer>
         </GlassCard>
 
-        {/* Trend chart */}
+        {/* Quick actions */}
         <GlassCard className="lg:col-span-2">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h3 className="text-sm font-semibold text-slate-300">Readiness Trend</h3>
-              <p className="text-xs text-slate-500 mt-0.5">Last 6 months</p>
+              <h3 className="text-sm font-semibold text-slate-300">Quick Actions</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Jump back into your workflow</p>
             </div>
-            <span className="text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-1 rounded-lg">
-              ↑ +29 pts
-            </span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={trendData}>
-              <XAxis dataKey="m" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip
-                contentStyle={{ background: '#0f172a', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 10 }}
-                labelStyle={{ color: '#e2e8f0', fontSize: 12 }}
-                itemStyle={{ color: '#06b6d4' }}
-              />
-              <Line type="monotone" dataKey="v" stroke="#06b6d4" strokeWidth={2.5}
-                dot={{ fill: '#06b6d4', r: 3 }} activeDot={{ r: 5 }} isAnimationActive={false} />
-            </LineChart>
-          </ResponsiveContainer>
 
-          {/* Quick actions */}
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {ACTIONS.map(({ href, icon: Icon, label, desc, color }) => {
               const c = colorMap[color] || colorMap.cyan;
               return (
@@ -207,14 +212,5 @@ export default function DashboardPage() {
         </GlassCard>
       </div>
     </div>
-  );
-}
-
-function Briefcase(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="12"/>
-    </svg>
   );
 }
