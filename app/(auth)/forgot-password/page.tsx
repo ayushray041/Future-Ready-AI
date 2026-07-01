@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react';
 import Link from 'next/link';
 import { Zap, ArrowLeft, Loader2, Mail, CheckCircle } from 'lucide-react';
+import { authService } from '@/services/auth.service';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -18,9 +19,10 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       // authService.resetPassword(email)
-      await new Promise(r => setTimeout(r, 800));
+      await authService.resetPassword(email);
       setSent(true);
-    } catch {
+    } catch (err){
+      console.error(err);
       setError('Could not send reset email. Try again.');
     } finally {
       setLoading(false);
