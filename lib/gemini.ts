@@ -4,15 +4,17 @@
 // SDK package is required. Called exclusively from app/api/* route handlers.
 
 const BASE_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 function getKey(): string {
   const k = process.env.GEMINI_API_KEY;
+
+  console.log("KEY PREFIX:", k?.slice(0, 15));
+
   if (!k) {
-    throw new Error(
-      'GEMINI_API_KEY is not set. Add it to .env.local as GEMINI_API_KEY=your_key_here',
-    );
+    throw new Error("GEMINI_API_KEY missing");
   }
+
   return k;
 }
 
