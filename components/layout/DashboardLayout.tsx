@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, createContext, useContext } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -31,21 +31,75 @@ const NAV = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [dark, setDark] = useState(true);
+  const [prefersDark, setPrefersDark] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { profile } = useAuth();
 
   const sidebarW = collapsed ? 'w-16' : 'w-60';
 
+  const themePreference = profile?.theme ?? 'dark';
+  const prefersSystemDark = prefersDark;
+  const activeTheme = themePreference === 'system'
+    ? (prefersSystemDark ? 'dark' : 'light')
+    : themePreference;
+
+  function getContrastColor(hex: string) {
+    const normalized = hex.replace('#', '');
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#0f172a' : '#ffffff';
+  }
+
   async function handleLogout() {
     await authService.signOut();
     router.push('/login');
   }
 
+  useEffect(() => {
+    const html = document.documentElement;
+    if (!html) return;
+
+    if (activeTheme === 'dark') {
+      html.classList.add('dark');
+      html.classList.remove('light');
+    } else {
+      html.classList.add('light');
+      html.classList.remove('dark');
+    }
+
+    if (profile?.accentColor) {
+      html.style.setProperty('--accent', profile.accentColor);
+      html.style.setProperty('--accent-foreground', getContrastColor(profile.accentColor));
+    }
+
+    if (profile?.compactMode) {
+      html.classList.add('compact-mode');
+    } else {
+      html.classList.remove('compact-mode');
+    }
+
+    if (profile?.reducedMotion) {
+      html.classList.add('reduced-motion');
+    } else {
+      html.classList.remove('reduced-motion');
+    }
+  }, [activeTheme, profile?.accentColor, profile?.compactMode, profile?.reducedMotion]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const update = () => setPrefersDark(media.matches);
+    update();
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+
   return (
     <SidebarContext.Provider value={{ collapsed, toggle: () => setCollapsed(p => !p) }}>
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex">
+      <div className="min-h-screen bg-background text-foreground flex">
 
         {/* ── Mobile overlay ── */}
         {mobileOpen && (
@@ -170,11 +224,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               {/* Theme toggle */}
               <button
-                onClick={() => setDark(p => !p)}
+                onClick={() => {
+                  const html = document.documentElement;
+                  if (html.classList.contains('dark')) {
+                    html.classList.remove('dark');
+                    html.classList.add('light');
+                  } else {
+                    html.classList.remove('light');
+                    html.classList.add('dark');
+                  }
+                }}
                 className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center
                   text-slate-400 hover:text-white transition-colors"
               >
-                {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {activeTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
 
               {/* Notifications */}
