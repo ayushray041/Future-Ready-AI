@@ -91,7 +91,7 @@ Include 6–8 skillGap items, 4–5 futureRoles, and exactly 4 recommendations.`
 
     const twin = await geminiJSON<TwinPayload>(SYSTEM, userPrompt, {
       temperature: 0.5,
-      maxTokens:   2500,
+      maxTokens:   4096,
     });
 
     return NextResponse.json({
