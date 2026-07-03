@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   User, Edit2, Plus, Trash2, Save, X, CheckCircle,
   GraduationCap, Briefcase, Award, Code, Star, Camera, Loader2,
 } from 'lucide-react';
 import GlassCard from '@/components/shared/GlassCard';
 import PageHeader from '@/components/shared/PageHeader';
+import { useAuth } from '@/hooks/useAuth';
+import { updateUser } from '@/services/user.service';
 
 /* ─────────────────────────────────────────────────────────────
    TYPES & DATA
@@ -31,6 +33,8 @@ const SKILL_OPTIONS = [
   'Data Structures', 'System Design', 'REST APIs', 'GraphQL', 'Git', 'CI/CD',
 ];
 
+const INIT_SKILLS = ['Python', 'React', 'TypeScript', 'Node.js', 'Machine Learning', 'SQL', 'Docker', 'Git', 'Data Structures', 'Next.js'];
+
 const INIT_EDUCATION: Education[] = [
   { id: 'e1', degree: 'B.Tech Computer Science Engineering', institution: 'NIT Warangal', year: '2023 – 2027', gpa: '8.4 / 10', editing: false },
 ];
@@ -48,6 +52,23 @@ const INIT_ACHIEVEMENTS: Achievement[] = [
 ];
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
+
+function normalizeEducation(items: Education[]) {
+  return items.map(({ id, editing, ...rest }) => rest);
+}
+function normalizeExperience(items: Experience[]) {
+  return items.map(({ id, editing, ...rest }) => rest);
+}
+function normalizeCerts(items: Certification[]) {
+  return items.map(({ id, ...rest }) => rest);
+}
+function normalizeAchievements(items: Achievement[]) {
+  return items.map(({ id, ...rest }) => rest);
+}
+
+async function saveFirestoreProfile(uid: string, data: Partial<Record<string, any>>) {
+  await updateUser(uid, data);
+}
 
 /* ─────────────────────────────────────────────────────────────
    INLINE EDIT HELPERS
@@ -67,6 +88,8 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
    PAGE
 ───────────────────────────────────────────────────────────── */
 export default function ProfilePage() {
+  const { profile, loading, refreshProfile } = useAuth();
+
   /* Basic info */
   const [editingBasic, setEditingBasic] = useState(false);
   const [basic, setBasic] = useState({
@@ -84,6 +107,44 @@ export default function ProfilePage() {
   const [skills, setSkills] = useState<string[]>(['Python', 'React', 'TypeScript', 'Node.js', 'Machine Learning', 'SQL', 'Docker', 'Git', 'Data Structures', 'Next.js']);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
 
+  useEffect(() => {
+    if (loading || !profile) return;
+
+    const loadedBasic = {
+      name: profile.displayName || basic.name,
+      email: profile.email || basic.email,
+      headline: profile.headline || basic.headline,
+      college: profile.college || basic.college,
+      year: profile.year || basic.year,
+      branch: profile.branch || basic.branch,
+      location: profile.location || basic.location,
+      github: profile.github || basic.github,
+      linkedin: profile.linkedin || basic.linkedin,
+      website: profile.website || basic.website,
+      bio: profile.bio || basic.bio,
+    };
+
+    setBasic(loadedBasic);
+    setBasicDraft(loadedBasic);
+    setSkills(profile.skills?.length ? profile.skills : INIT_SKILLS);
+    setEducation(profile.education?.length
+      ? profile.education.map(item => ({ id: item.id ?? uid(), ...item, editing: false }))
+      : INIT_EDUCATION,
+    );
+    setExperience(profile.experience?.length
+      ? profile.experience.map(item => ({ id: item.id ?? uid(), ...item, editing: false }))
+      : INIT_EXPERIENCE,
+    );
+    setCerts(profile.certificates?.length
+      ? profile.certificates.map(item => ({ id: item.id ?? uid(), ...item }))
+      : INIT_CERTS,
+    );
+    setAchievements(profile.achievements?.length
+      ? profile.achievements.map(item => ({ id: item.id ?? uid(), ...item }))
+      : INIT_ACHIEVEMENTS,
+    );
+  }, [loading, profile]);
+
   /* Education */
   const [education, setEducation] = useState<Education[]>(INIT_EDUCATION);
 
@@ -94,7 +155,7 @@ export default function ProfilePage() {
   const [certs, setCerts] = useState<Certification[]>(INIT_CERTS);
 
   /* Achievements */
-  const [achievements] = useState<Achievement[]>(INIT_ACHIEVEMENTS);
+  const [achievements, setAchievements] = useState<Achievement[]>(INIT_ACHIEVEMENTS);
 
   /* Active tab on mobile */
   type Tab = 'overview' | 'skills' | 'education' | 'experience' | 'certs';
@@ -102,8 +163,28 @@ export default function ProfilePage() {
 
   /* ── Handlers ── */
   async function saveBasic() {
+    if (!profile) return;
     setSavingBasic(true);
-    await new Promise(r => setTimeout(r, 800));
+    const payload = {
+      displayName: basicDraft.name,
+      headline: basicDraft.headline,
+      location: basicDraft.location,
+      github: basicDraft.github,
+      linkedin: basicDraft.linkedin,
+      website: basicDraft.website,
+      bio: basicDraft.bio,
+      college: basicDraft.college,
+      year: basicDraft.year,
+      branch: basicDraft.branch,
+      skills,
+      education: normalizeEducation(education),
+      experience: normalizeExperience(experience),
+      certificates: normalizeCerts(certs),
+      achievements: normalizeAchievements(achievements),
+    };
+
+    await updateUser(profile.uid, payload);
+    await refreshProfile();
     setBasic(basicDraft);
     setSavingBasic(false);
     setEditingBasic(false);
@@ -112,29 +193,59 @@ export default function ProfilePage() {
   }
 
   function toggleSkill(s: string) {
-    setSkills(p => p.includes(s) ? p.filter(x => x !== s) : [...p, s]);
+    const next = skills.includes(s) ? skills.filter(x => x !== s) : [...skills, s];
+    setSkills(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { skills: next });
   }
 
   function addEducation() {
-    setEducation(p => [...p, { id: uid(), degree: '', institution: '', year: '', gpa: '', editing: true }]);
+    const next = [...education, { id: uid(), degree: '', institution: '', year: '', gpa: '', editing: true }];
+    setEducation(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { education: normalizeEducation(next) });
   }
   function updateEdu(id: string, key: keyof Education, val: string | boolean) {
-    setEducation(p => p.map(e => e.id === id ? { ...e, [key]: val } : e));
+    const next = education.map(e => e.id === id ? { ...e, [key]: val } : e);
+    setEducation(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { education: normalizeEducation(next) });
   }
-  function removeEdu(id: string) { setEducation(p => p.filter(e => e.id !== id)); }
+  function removeEdu(id: string) {
+    const next = education.filter(e => e.id !== id);
+    setEducation(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { education: normalizeEducation(next) });
+  }
 
   function addExperience() {
-    setExperience(p => [...p, { id: uid(), role: '', company: '', period: '', description: '', editing: true }]);
+    const next = [...experience, { id: uid(), role: '', company: '', period: '', description: '', editing: true }];
+    setExperience(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { experience: normalizeExperience(next) });
   }
   function updateExp(id: string, key: keyof Experience, val: string | boolean) {
-    setExperience(p => p.map(e => e.id === id ? { ...e, [key]: val } : e));
+    const next = experience.map(e => e.id === id ? { ...e, [key]: val } : e);
+    setExperience(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { experience: normalizeExperience(next) });
   }
-  function removeExp(id: string) { setExperience(p => p.filter(e => e.id !== id)); }
+  function removeExp(id: string) {
+    const next = experience.filter(e => e.id !== id);
+    setExperience(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { experience: normalizeExperience(next) });
+  }
 
   function addCert() {
-    setCerts(p => [...p, { id: uid(), name: '', issuer: '', date: '', credentialUrl: '' }]);
+    const next = [...certs, { id: uid(), name: '', issuer: '', date: '', credentialUrl: '' }];
+    setCerts(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { certificates: normalizeCerts(next) });
   }
-  function removeCert(id: string) { setCerts(p => p.filter(c => c.id !== id)); }
+  function removeCert(id: string) {
+    const next = certs.filter(c => c.id !== id);
+    setCerts(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { certificates: normalizeCerts(next) });
+  }
+
+  function updateCert(id: string, key: keyof Certification, value: string) {
+    const next = certs.map(c => c.id === id ? { ...c, [key]: value } : c);
+    setCerts(next);
+    if (profile) void saveFirestoreProfile(profile.uid, { certificates: normalizeCerts(next) });
+  }
 
   const TABS: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
@@ -414,11 +525,11 @@ export default function ProfilePage() {
                         </>
                       ) : (
                         <div className="grid grid-cols-2 gap-2">
-                          <input placeholder="Cert name" value={c.name} onChange={e => setCerts(p => p.map(x => x.id === c.id ? { ...x, name: e.target.value } : x))}
+                          <input placeholder="Cert name" value={c.name} onChange={e => updateCert(c.id, 'name', e.target.value)}
                             className="bg-white/5 border border-white/5 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/40" />
-                          <input placeholder="Issuer" value={c.issuer} onChange={e => setCerts(p => p.map(x => x.id === c.id ? { ...x, issuer: e.target.value } : x))}
+                          <input placeholder="Issuer" value={c.issuer} onChange={e => updateCert(c.id, 'issuer', e.target.value)}
                             className="bg-white/5 border border-white/5 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/40" />
-                          <input placeholder="Date" value={c.date} onChange={e => setCerts(p => p.map(x => x.id === c.id ? { ...x, date: e.target.value } : x))}
+                          <input placeholder="Date" value={c.date} onChange={e => updateCert(c.id, 'date', e.target.value)}
                             className="bg-white/5 border border-white/5 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-cyan-500/40" />
                         </div>
                       )}

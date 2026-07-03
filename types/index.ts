@@ -1,6 +1,37 @@
 // types/index.ts — single source of truth for all shared TypeScript types
 
 // ── User & Auth ──────────────────────────────────────────────
+export interface ProfileEducation {
+  id?: string;
+  degree: string;
+  institution: string;
+  year: string;
+  gpa: string;
+}
+
+export interface ProfileExperience {
+  id?: string;
+  role: string;
+  company: string;
+  period: string;
+  description: string;
+}
+
+export interface ProfileCertificate {
+  id?: string;
+  name: string;
+  issuer: string;
+  date: string;
+  credentialUrl?: string;
+}
+
+export interface ProfileAchievement {
+  id?: string;
+  title: string;
+  description: string;
+  date: string;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;
@@ -13,6 +44,16 @@ export interface UserProfile {
   salaryExpectation: string;
   skills: string[];
   goals: string[];
+  headline?: string;
+  location?: string;
+  github?: string;
+  linkedin?: string;
+  website?: string;
+  bio?: string;
+  education?: ProfileEducation[];
+  experience?: ProfileExperience[];
+  certificates?: ProfileCertificate[];
+  achievements?: ProfileAchievement[];
   careerScore: number;
   streak: number;
   createdAt: string;

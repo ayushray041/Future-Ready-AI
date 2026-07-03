@@ -8,6 +8,8 @@ import {
   FileText, Mic, Users, User, Settings, LogOut, Bell,
   ChevronLeft, ChevronRight, Menu, X, Zap, Search, Moon, Sun,
 } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
+import { authService } from '@/services/auth.service';
 
 interface SidebarCtx { collapsed: boolean; toggle: () => void }
 const SidebarContext = createContext<SidebarCtx>({ collapsed: false, toggle: () => {} });
@@ -32,10 +34,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [dark, setDark] = useState(true);
   const pathname = usePathname();
   const router = useRouter();
+  const { profile } = useAuth();
 
   const sidebarW = collapsed ? 'w-16' : 'w-60';
 
-  function handleLogout() {
+  async function handleLogout() {
+    await authService.signOut();
     router.push('/login');
   }
 
@@ -116,12 +120,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className={`border-t border-white/5 p-3 flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-500 to-slate-700
               flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
-              AY
+              {profile?.displayName?.split(' ').map(part => part[0]).slice(0, 2).join('').toUpperCase() || 'US'}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white truncate">Ayush Sharma</p>
-                <p className="text-xs text-slate-500 truncate">2nd Year · CSE</p>
+                <p className="text-xs font-semibold text-white truncate">{profile?.displayName || 'User'}</p>
+                <p className="text-xs text-slate-500 truncate">{profile ? `${profile.year} · ${profile.branch}` : 'Not signed in'}</p>
               </div>
             )}
             {!collapsed && (
@@ -184,7 +188,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <div className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600
                 flex items-center justify-center text-xs font-bold text-white cursor-pointer
                 ring-2 ring-cyan-500/30">
-                AY
+                {profile?.displayName?.split(' ').map(part => part[0]).slice(0, 2).join('').toUpperCase() || 'US'}
               </div>
             </div>
           </header>
