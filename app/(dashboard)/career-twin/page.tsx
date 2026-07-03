@@ -129,7 +129,7 @@ export default function CareerTwinPage() {
     const json = await res.json();
 
     await saveTwin(profile!.uid, json.twin);
-
+  console.log("Twin Response:", json.twin);
     setTwin(json.twin);
   } finally {
     setGenerating(false);
@@ -138,6 +138,43 @@ export default function CareerTwinPage() {
 
   loadTwin();
 }, [profile]);
+
+async function regenerateTwin() {
+  if (!profile) return;
+
+  setGenerating(true);
+
+  try {
+    const res = await fetch("/api/career-twin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        uid: profile.uid,
+        profile: {
+          displayName: profile.displayName,
+          year: profile.year,
+          branch: profile.branch,
+          college: profile.college,
+          targetCareer: profile.targetCareer,
+          skills: profile.skills,
+          goals: profile.goals,
+          salaryExpectation: profile.salaryExpectation,
+        },
+        resumeAnalysis: null,
+      }),
+    });
+
+    const json = await res.json();
+
+    await saveTwin(profile.uid, json.twin);
+
+    setTwin(json.twin);
+  } finally {
+    setGenerating(false);
+  }
+}
 
   if (loading) {
     return <div>Loading...</div>;
@@ -149,6 +186,8 @@ export default function CareerTwinPage() {
 if (!twin) {
   return <div>Generating Career Twin...</div>;
 }
+console.log("Twin Data =", twin);
+console.log(twin);
 
 
   return (
@@ -158,10 +197,16 @@ if (!twin) {
         description="Your digital career doppelgänger — built from 10,000+ anonymised student journeys matching your profile."
         badge="AI Digital Twin"
         action={
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600
-            text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 transition-all">
-            <Zap className="h-4 w-4" /> Regenerate Twin
-          </button>
+          <button
+  onClick={regenerateTwin}
+  disabled={generating}
+  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600
+  text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 hover:from-cyan-400 hover:to-blue-500 transition-all disabled:opacity-50"
+>
+  <Zap className="h-4 w-4" />
+
+  {generating ? "Generating..." : "Regenerate Twin"}
+</button>
         }
       />
 
@@ -190,11 +235,11 @@ if (!twin) {
 
           <div className="space-y-2 text-xs">
             {[
-              ['Background', 'CSE, 2nd Year, Tier-2 NIT'],
-              ['Target',     'AI Engineer'],
-              ['Twin\'s Role', 'ML Engineer @ Google'],
-              ['Time taken',  '2.3 years from your stage'],
-              ['Twin Score',  '94 / 100'],
+              ['Background', twin.twinBackground],
+              ['Target', profile.targetCareer],
+              ['Twin\'s Role', twin.twinRole],
+              ['Time taken', 'Based on AI prediction'],
+              ['Twin Score', `${twin.twinScore}/100`],
             ].map(([k, v]) => (
               <div key={k} className="flex items-start justify-between gap-2 py-1.5 border-b border-white/5 last:border-0">
                 <span className="text-slate-500 flex-shrink-0">{k}</span>
@@ -206,7 +251,7 @@ if (!twin) {
           <div className="mt-4 p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/10">
             <p className="text-xs text-slate-400 leading-relaxed">
               <span className="text-cyan-400 font-semibold">Twin&apos;s success factors: </span>
-              GSoC in 2nd year, AWS cert before 3rd year, 200+ LeetCode problems, strong ML project portfolio.
+              {twin.successFactors}, AWS cert before 3rd year, 200+ LeetCode problems, strong ML project portfolio.
             </p>
           </div>
         </GlassCard>
@@ -224,7 +269,13 @@ if (!twin) {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <RadarChart data={RADAR} margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
+            <RadarChart
+              data={(twin?.skillGap || []).map(s => ({
+                skill: s.skill,
+                you: s.you,
+                twin: s.twin,
+              }))}
+            margin={{ top: 5, right: 20, bottom: 5, left: 20 }}>
               <PolarGrid stroke="rgba(255,255,255,0.05)" />
               <PolarAngleAxis dataKey="skill" tick={{ fill: '#64748b', fontSize: 11 }} />
               <Radar dataKey="you"  stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.15} name="You" />
@@ -238,7 +289,7 @@ if (!twin) {
       <GlassCard>
         <h3 className="text-sm font-semibold text-slate-300 mb-4">Skill Gap Analysis</h3>
         <div className="space-y-3">
-          {SKILL_GAP.map(item => (
+          {twin.skillGap.map(item => (
             <div key={item.skill}>
               <div className="flex items-center gap-3 mb-1.5">
                 <GapArrow gap={item.gap} />
@@ -305,7 +356,7 @@ if (!twin) {
         <GlassCard>
           <h3 className="text-sm font-semibold text-slate-300 mb-4">Future Role Predictions</h3>
           <div className="space-y-3">
-            {FUTURE_ROLES.map((role, i) => (
+            {twin.futureRoles.map((role, i) => (
               <button key={i} onClick={() => setActiveRole(i)}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left
                   ${activeRole === i ? 'bg-cyan-500/10 ring-1 ring-cyan-500/20' : 'bg-white/5 hover:bg-white/10'}`}>
@@ -367,7 +418,7 @@ if (!twin) {
 </h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {RECS.map(rec => (
+          {twin.recommendations.map(rec => (
             <div key={rec.priority}
               className="group relative p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all cursor-pointer overflow-hidden">
               <div className="flex items-start gap-3">
@@ -391,6 +442,16 @@ if (!twin) {
           ))}
         </div>
       </GlassCard>
+      <GlassCard>
+  <h3 className="text-sm font-semibold text-slate-300 mb-3">
+    AI Growth Plan
+  </h3>
+
+  <p className="text-slate-400 leading-7">
+    {twin.growthPlan}
+  </p>
+</GlassCard>
+      
     </div>
   );
 }
