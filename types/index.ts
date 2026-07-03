@@ -50,6 +50,12 @@ export interface UserProfile {
   linkedin?: string;
   website?: string;
   bio?: string;
+  notifications?: NotificationPreferences;
+  privacy?: PrivacyPreferences;
+  theme?: 'dark' | 'light' | 'system';
+  accentColor?: string;
+  compactMode?: boolean;
+  reducedMotion?: boolean;
   education?: ProfileEducation[];
   experience?: ProfileExperience[];
   certificates?: ProfileCertificate[];

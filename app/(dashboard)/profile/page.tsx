@@ -93,11 +93,11 @@ export default function ProfilePage() {
   /* Basic info */
   const [editingBasic, setEditingBasic] = useState(false);
   const [basic, setBasic] = useState({
-    name: 'Ayush Sharma', email: 'ayush.sharma@nit.ac.in',
-    headline: 'AI Engineer in the making | DSA · ML · Open Source',
-    college: 'NIT Warangal', year: '2nd Year', branch: 'CSE', location: 'Hyderabad, India',
-    github: 'github.com/ayush', linkedin: 'linkedin.com/in/ayush', website: 'ayushsharma.dev',
-    bio: 'Passionate about building AI systems that solve real-world problems. Currently exploring ML, open source, and cloud-native development. Looking for internships in AI/ML for Summer 2025.',
+    name: '', email: '',
+    headline: '',
+    college: '', year: '', branch: '', location: '',
+    github: '', linkedin: '', website: '',
+    bio: '',
   });
   const [basicDraft, setBasicDraft] = useState(basic);
   const [savingBasic, setSavingBasic] = useState(false);
@@ -110,18 +110,23 @@ export default function ProfilePage() {
   useEffect(() => {
     if (loading || !profile) return;
 
+    const isPlaceholderLink = (value?: string) => {
+      if (!value) return false;
+      return /ayush|ayush\.sharma|github\.com\/ayush|linkedin\.com\/in\/ayush/.test(value.toLowerCase());
+    };
+
     const loadedBasic = {
-      name: profile.displayName || basic.name,
-      email: profile.email || basic.email,
-      headline: profile.headline || basic.headline,
-      college: profile.college || basic.college,
-      year: profile.year || basic.year,
-      branch: profile.branch || basic.branch,
-      location: profile.location || basic.location,
-      github: profile.github || basic.github,
-      linkedin: profile.linkedin || basic.linkedin,
-      website: profile.website || basic.website,
-      bio: profile.bio || basic.bio,
+      name: profile.displayName || '',
+      email: profile.email || '',
+      headline: profile.headline || '',
+      college: profile.college || '',
+      year: profile.year || '',
+      branch: profile.branch || '',
+      location: profile.location || '',
+      github: isPlaceholderLink(profile.github) ? '' : profile.github || '',
+      linkedin: isPlaceholderLink(profile.linkedin) ? '' : profile.linkedin || '',
+      website: profile.website || '',
+      bio: profile.bio || '',
     };
 
     setBasic(loadedBasic);
@@ -136,7 +141,7 @@ export default function ProfilePage() {
       : INIT_EXPERIENCE,
     );
     setCerts(profile.certificates?.length
-      ? profile.certificates.map(item => ({ id: item.id ?? uid(), ...item }))
+      ? profile.certificates.map(item => ({ id: item.id ?? uid(), ...item, credentialUrl: item.credentialUrl ?? '' }))
       : INIT_CERTS,
     );
     setAchievements(profile.achievements?.length

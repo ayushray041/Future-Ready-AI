@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   User, Bell, Lock, Palette, AlertTriangle,
   Save, CheckCircle, Loader2, ChevronRight, Eye, EyeOff,
@@ -8,6 +8,9 @@ import {
 } from 'lucide-react';
 import GlassCard from '@/components/shared/GlassCard';
 import PageHeader from '@/components/shared/PageHeader';
+import { useAuth } from '@/hooks/useAuth';
+import { updateUser } from '@/services/user.service';
+import { authService } from '@/services/auth.service';
 
 /* ─────────────────────────────────────────────────────────────
    TOGGLE COMPONENT
@@ -61,12 +64,32 @@ function SettingRow({ label, description, children }: {
 /* ─────────────────────────────────────────────────────────────
    PAGE
 ───────────────────────────────────────────────────────────── */
+interface NotificationPreferences {
+  opportunityAlerts: boolean;
+  interviewReminders: boolean;
+  weeklyDigest: boolean;
+  mentorMessages: boolean;
+  achievementBadges: boolean;
+  productUpdates: boolean;
+  marketingEmails: boolean;
+}
+
+interface PrivacyPreferences {
+  publicProfile: boolean;
+  showCareerScore: boolean;
+  showSkills: boolean;
+  allowDataAnalysis: boolean;
+  showInLeaderboard: boolean;
+}
+
 type ThemeOption = 'dark' | 'light' | 'system';
 
 export default function SettingsPage() {
+  const { profile, refreshProfile } = useAuth();
+
   /* Account */
-  const [name, setName]         = useState('Ayush Sharma');
-  const [email, setEmail]       = useState('ayush.sharma@nit.ac.in');
+  const [name, setName]         = useState('');
+  const [email, setEmail]       = useState('');
   const [savingAccount, setSavingAccount] = useState(false);
   const [savedAccount, setSavedAccount]   = useState(false);
 
@@ -80,7 +103,7 @@ export default function SettingsPage() {
   const [pwError, setPwError]       = useState('');
 
   /* Notifications */
-  const [notifs, setNotifs] = useState({
+  const [notifs, setNotifs] = useState<NotificationPreferences>({
     opportunityAlerts:  true,
     interviewReminders: true,
     weeklyDigest:       true,
@@ -91,7 +114,7 @@ export default function SettingsPage() {
   });
 
   /* Privacy */
-  const [privacy, setPrivacy] = useState({
+  const [privacy, setPrivacy] = useState<PrivacyPreferences>({
     publicProfile:     true,
     showCareerScore:   true,
     showSkills:        true,
@@ -105,6 +128,9 @@ export default function SettingsPage() {
   const [compactMode, setCompactMode] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
+  const [savingPrefs, setSavingPrefs] = useState(false);
+  const [savedPrefs, setSavedPrefs] = useState(false);
+
   /* Danger */
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput]             = useState('');
@@ -117,17 +143,44 @@ export default function SettingsPage() {
     setTimeout(() => setSavedAccount(false), 2500);
   }
 
+  async function savePreferences() {
+    if (!profile) return;
+    setSavingPrefs(true);
+    const payload = {
+      notifications: notifs,
+      privacy,
+      theme,
+      accentColor,
+      compactMode,
+      reducedMotion,
+    };
+    await updateUser(profile.uid, payload);
+    await refreshProfile();
+    setSavingPrefs(false);
+    setSavedPrefs(true);
+    setTimeout(() => setSavedPrefs(false), 2500);
+  }
+
   async function changePassword() {
     if (!currentPw) { setPwError('Enter your current password'); return; }
     if (newPw.length < 6) { setPwError('New password must be at least 6 characters'); return; }
     if (newPw !== confirmPw) { setPwError('Passwords do not match'); return; }
     setPwError('');
     setSavingPw(true);
-    await new Promise(r => setTimeout(r, 900));
-    setSavingPw(false);
-    setSavedPw(true);
-    setCurrentPw(''); setNewPw(''); setConfirmPw('');
-    setTimeout(() => setSavedPw(false), 2500);
+
+    try {
+      await authService.changePassword(currentPw, newPw);
+      setSavedPw(true);
+      setCurrentPw('');
+      setNewPw('');
+      setConfirmPw('');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Unable to update password.';
+      setPwError(message.replace(/^Firebase:\s*/i, '').trim());
+    } finally {
+      setSavingPw(false);
+      setTimeout(() => setSavedPw(false), 2500);
+    }
   }
 
   const THEME_OPTIONS: { id: ThemeOption; icon: React.ElementType; label: string }[] = [
@@ -137,6 +190,20 @@ export default function SettingsPage() {
   ];
 
   const ACCENT_COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
+
+  useEffect(() => {
+    if (!profile) return;
+
+    setName(profile.displayName || '');
+    setEmail(profile.email || '');
+
+    setNotifs(profile.notifications ?? notifs);
+    setPrivacy(profile.privacy ?? privacy);
+    setTheme(profile.theme ?? theme);
+    setAccentColor(profile.accentColor ?? accentColor);
+    setCompactMode(profile.compactMode ?? compactMode);
+    setReducedMotion(profile.reducedMotion ?? reducedMotion);
+  }, [profile]);
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -298,6 +365,16 @@ export default function SettingsPage() {
         <SettingRow label="Reduced Motion" description="Minimise animations and transitions">
           <Toggle value={reducedMotion} onChange={setReducedMotion} />
         </SettingRow>
+
+        <div className="pt-3 border-t border-white/5">
+          <button onClick={savePreferences} disabled={savingPrefs}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600
+              text-sm font-semibold text-white hover:from-cyan-400 hover:to-blue-500 disabled:opacity-60 transition-all
+              shadow-lg shadow-cyan-500/10">
+            {savingPrefs ? <Loader2 className="h-4 w-4 animate-spin" /> : savedPrefs ? <CheckCircle className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+            {savedPrefs ? 'Preferences Saved' : 'Save Preferences'}
+          </button>
+        </div>
       </Section>
 
       {/* ── DANGER ZONE ── */}
