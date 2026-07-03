@@ -10,7 +10,7 @@ import {
 import GlassCard        from '@/components/shared/GlassCard';
 import PageHeader       from '@/components/shared/PageHeader';
 import { useMentor }        from '@/hooks/useMentor';
-import { useAuthContext }   from '@/contexts/AuthContext';
+import { useAuth }          from '@/hooks/useAuth';
 
 const SUGGESTIONS = [
   'What skills should I focus on for my target role?',
@@ -56,7 +56,7 @@ function renderContent(text: string) {
 }
 
 export default function MentorPage() {
-  const { firebaseUser, profile, loading: authLoading } = useAuthContext();
+  const { profile, loading: authLoading } = useAuth();
   const {
     messages, loading, error, sessionReady,
     sendMessage, clearChat, initSession,
@@ -66,10 +66,10 @@ export default function MentorPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (firebaseUser?.uid && !authLoading) {
-      initSession(firebaseUser.uid);
+    if (profile?.uid && !authLoading) {
+      initSession(profile.uid);
     }
-  }, [firebaseUser?.uid, authLoading, initSession]);
+  }, [profile?.uid, authLoading, initSession]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
