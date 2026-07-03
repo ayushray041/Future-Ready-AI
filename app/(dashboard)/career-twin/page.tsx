@@ -1,5 +1,12 @@
 'use client';
 
+import { useEffect } from "react";
+import type { CareerTwinData } from "@/types";
+import { getTwin, saveTwin } from "@/services/career-twin.service";
+
+import {useAuthContext} from "@/contexts/AuthContext";
+
+
 import { useState } from 'react';
 import {
   Users, TrendingUp, Zap, Target, ChevronRight,
@@ -79,7 +86,70 @@ function GapArrow({ gap }: { gap: number }) {
    PAGE
 ───────────────────────────────────────────────────────────── */
 export default function CareerTwinPage() {
+  const {profile,loading} = useAuthContext();
   const [activeRole, setActiveRole] = useState(0);
+  const [twin, setTwin] = useState<CareerTwinData | null>(null);
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+  if (!profile) return;
+
+ async function loadTwin() {
+  const data = await getTwin(profile!.uid);
+
+  if (data) {
+    setTwin(data);
+    return; // 👈 ye line add karo
+  }
+
+  setGenerating(true);
+
+  try {
+    const res = await fetch("/api/career-twin", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        uid: profile!.uid,
+        profile: {
+          displayName: profile!.displayName,
+          year: profile!.year,
+          branch: profile!.branch,
+          college: profile!.college,
+          targetCareer: profile!.targetCareer,
+          skills: profile!.skills,
+          goals: profile!.goals,
+          salaryExpectation: profile!.salaryExpectation,
+        },
+        resumeAnalysis: null,
+      }),
+    });
+
+    const json = await res.json();
+
+    await saveTwin(profile!.uid, json.twin);
+
+    setTwin(json.twin);
+  } finally {
+    setGenerating(false);
+  }
+}
+
+  loadTwin();
+}, [profile]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+  if (!profile) {
+  return <div>Please login</div>;
+}
+
+if (!twin) {
+  return <div>Generating Career Twin...</div>;
+}
+
 
   return (
     <div className="space-y-6">
@@ -112,8 +182,9 @@ export default function CareerTwinPage() {
             </div>
             <div>
               <p className="text-xs text-slate-500 font-medium">Your Career Twin</p>
-              <p className="text-base font-bold text-white">Twin #A-2847</p>
-              <p className="text-xs text-cyan-400">93.4% profile match</p>
+              <p className="text-base font-bold text-white">Twin #{twin.twinId}</p>
+          
+              <p className="text-xs text-cyan-400">{twin.matchPercent}% profile match</p>
             </div>
           </div>
 

@@ -3,6 +3,8 @@
 // server components and client components.
 // DO NOT duplicate getApps() — this file is the single source of truth.
 
+import { getStorage } from 'firebase/storage';
+
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth,      type Auth      } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
@@ -21,4 +23,5 @@ const app: FirebaseApp =
 
 export const auth: Auth      = getAuth(app);
 export const db:   Firestore = getFirestore(app);
+export const storage = getStorage(app);
 export default app;
