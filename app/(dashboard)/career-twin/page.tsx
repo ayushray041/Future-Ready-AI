@@ -1,13 +1,9 @@
 'use client';
 
-import { useEffect } from "react";
-import type { CareerTwinData } from "@/types";
-import { getTwin, saveTwin } from "@/services/career-twin.service";
-
-import {useAuthContext} from "@/contexts/AuthContext";
-
-
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { CareerTwinData } from '@/types';
+import { getTwin, saveTwin } from '@/services/career-twin.service';
+import { useAuth } from '@/hooks/useAuth';
 import {
   Users, TrendingUp, Zap, Target, ChevronRight,
   ArrowUp, ArrowDown, Minus, Brain, Star, Lock,
@@ -23,25 +19,6 @@ import {
 /* ─────────────────────────────────────────────────────────────
    DATA
 ───────────────────────────────────────────────────────────── */
-const SKILL_GAP = [
-  { skill: 'DSA',            you: 82, twin: 91, gap: -9  },
-  { skill: 'System Design',  you: 48, twin: 80, gap: -32 },
-  { skill: 'ML/AI',          you: 65, twin: 87, gap: -22 },
-  { skill: 'Cloud',          you: 55, twin: 82, gap: -27 },
-  { skill: 'Communication',  you: 48, twin: 78, gap: -30 },
-  { skill: 'React/Frontend', you: 74, twin: 80, gap: -6  },
-  { skill: 'Open Source',    you: 40, twin: 72, gap: -32 },
-];
-
-const RADAR = [
-  { skill: 'DSA',     you: 82, twin: 91 },
-  { skill: 'System',  you: 48, twin: 80 },
-  { skill: 'ML/AI',   you: 65, twin: 87 },
-  { skill: 'Cloud',   you: 55, twin: 82 },
-  { skill: 'Comm.',   you: 48, twin: 78 },
-  { skill: 'Projects',you: 70, twin: 88 },
-];
-
 const TRAJECTORY = [
   { period: 'Now',      you: 74, target: 74, peer: 68 },
   { period: 'Q3 2025',  you: 80, target: 82, peer: 72 },
@@ -50,25 +27,10 @@ const TRAJECTORY = [
   { period: 'Q2 2026',  you: 91, target: 95, peer: 79 },
 ];
 
-const FUTURE_ROLES = [
-  { title: 'AI Engineer',        company: 'Top Product Co.',  probability: 91, salary: '18–30 LPA', timeline: '2 years',   match: 'high'   },
-  { title: 'ML Engineer',        company: 'Unicorn Startup',  probability: 83, salary: '15–25 LPA', timeline: '18 months', match: 'high'   },
-  { title: 'SWE (AI Focus)',     company: 'FAANG',            probability: 74, salary: '30–50 LPA', timeline: '2.5 years', match: 'medium' },
-  { title: 'Research Engineer',  company: 'Research Lab',     probability: 58, salary: '20–35 LPA', timeline: '3 years',   match: 'medium' },
-  { title: 'AI Product Manager', company: 'SaaS Company',     probability: 45, salary: '20–40 LPA', timeline: '3.5 years', match: 'low'    },
-];
-
 const TWINS = [
   { name: 'Priya S.',  college: 'IIT Bombay',  role: 'AI Engineer at Google',    score: 94, path: ['GSoC', 'Intern @ DeepMind', 'Google AI'] },
   { name: 'Rohan K.',  college: 'BITS Pilani',  role: 'ML Engineer at OpenAI',    score: 91, path: ['Research intern', 'Kaggle Expert', 'OpenAI'] },
   { name: 'Ananya M.', college: 'NIT Trichy',   role: 'SDE-II at Flipkart',       score: 88, path: ['Competitive Coding', 'Intern @ Flipkart', 'FTE'] },
-];
-
-const RECS = [
-  { priority: 1, emoji: '🏗️', title: 'Build an end-to-end ML system',   impact: '+12 pts', effort: '6 weeks', desc: 'Your twin completed a Recommendation System project that boosted their ML score from 65 → 87. Build one using PyTorch + FastAPI + deployment.' },
-  { priority: 2, emoji: '☁️', title: 'AWS Cloud Practitioner cert',        impact: '+8 pts',  effort: '3 weeks', desc: '78% of your twin cohort has cloud certifications. This single cert bridges your biggest skill gap with recruiters.' },
-  { priority: 3, emoji: '🗣️', title: 'Join a debate / public speaking club',impact: '+7 pts', effort: '8 weeks', desc: 'Communication is your lowest-scored dimension. Toastmasters-style practice correlates with +20% interview success rate in your twin group.' },
-  { priority: 4, emoji: '🌐', title: 'Contribute to an open-source AI project',impact: '+6 pts',effort: '4 weeks', desc: 'Hugging Face, LangChain, or LlamaIndex — open-source contribution signals practical ML skills to top-tier recruiters.' },
 ];
 
 const TOOLTIP_STYLE = {
@@ -86,81 +48,79 @@ function GapArrow({ gap }: { gap: number }) {
    PAGE
 ───────────────────────────────────────────────────────────── */
 export default function CareerTwinPage() {
-  const {profile,loading} = useAuthContext();
+  const { profile, loading } = useAuth();
   const [activeRole, setActiveRole] = useState(0);
   const [twin, setTwin] = useState<CareerTwinData | null>(null);
   const [generating, setGenerating] = useState(false);
 
   useEffect(() => {
-  if (!profile) return;
+    if (!profile) return;
+    const currentProfile = profile;
 
- async function loadTwin() {
-  const data = await getTwin(profile!.uid);
+    async function loadTwin() {
+      const cachedTwin = await getTwin(currentProfile.uid);
+      if (cachedTwin) {
+        setTwin(cachedTwin);
+        return;
+      }
 
-  if (data) {
-    setTwin(data);
-    return; // 👈 ye line add karo
-  }
+      setGenerating(true);
+      try {
+        const res = await fetch('/api/career-twin', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            uid: currentProfile.uid,
+            profile: {
+              displayName: currentProfile.displayName,
+              year: currentProfile.year,
+              branch: currentProfile.branch,
+              college: currentProfile.college,
+              targetCareer: currentProfile.targetCareer,
+              skills: currentProfile.skills,
+              goals: currentProfile.goals,
+              salaryExpectation: currentProfile.salaryExpectation,
+            },
+            resumeAnalysis: null,
+          }),
+        });
 
-  setGenerating(true);
+        const json = await res.json();
+        await saveTwin(currentProfile.uid, json.twin);
+        console.log("Career Twin API:", json);
+      } finally {
+        setGenerating(false);
+      }
+    }
 
-  try {
-    const res = await fetch("/api/career-twin", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        uid: profile!.uid,
-        profile: {
-          displayName: profile!.displayName,
-          year: profile!.year,
-          branch: profile!.branch,
-          college: profile!.college,
-          targetCareer: profile!.targetCareer,
-          skills: profile!.skills,
-          goals: profile!.goals,
-          salaryExpectation: profile!.salaryExpectation,
-        },
-        resumeAnalysis: null,
-      }),
-    });
-
-    const json = await res.json();
-
-    await saveTwin(profile!.uid, json.twin);
-  console.log("Twin Response:", json.twin);
-    setTwin(json.twin);
-  } finally {
-    setGenerating(false);
-  }
-}
-
-  loadTwin();
-}, [profile]);
+    loadTwin();
+  }, [profile]);
 
 async function regenerateTwin() {
   if (!profile) return;
+  const currentProfile = profile;
 
   setGenerating(true);
 
   try {
-    const res = await fetch("/api/career-twin", {
-      method: "POST",
+    const res = await fetch('/api/career-twin', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        uid: profile.uid,
+        uid: currentProfile.uid,
         profile: {
-          displayName: profile.displayName,
-          year: profile.year,
-          branch: profile.branch,
-          college: profile.college,
-          targetCareer: profile.targetCareer,
-          skills: profile.skills,
-          goals: profile.goals,
-          salaryExpectation: profile.salaryExpectation,
+          displayName: currentProfile.displayName,
+          year: currentProfile.year,
+          branch: currentProfile.branch,
+          college: currentProfile.college,
+          targetCareer: currentProfile.targetCareer,
+          skills: currentProfile.skills,
+          goals: currentProfile.goals,
+          salaryExpectation: currentProfile.salaryExpectation,
         },
         resumeAnalysis: null,
       }),
@@ -168,7 +128,7 @@ async function regenerateTwin() {
 
     const json = await res.json();
 
-    await saveTwin(profile.uid, json.twin);
+    await saveTwin(currentProfile.uid, json.twin);
 
     setTwin(json.twin);
   } finally {
@@ -186,9 +146,6 @@ async function regenerateTwin() {
 if (!twin) {
   return <div>Generating Career Twin...</div>;
 }
-console.log("Twin Data =", twin);
-console.log(twin);
-
 
   return (
     <div className="space-y-6">
@@ -289,7 +246,7 @@ console.log(twin);
       <GlassCard>
         <h3 className="text-sm font-semibold text-slate-300 mb-4">Skill Gap Analysis</h3>
         <div className="space-y-3">
-          {twin.skillGap.map(item => (
+          {(twin.skillGap ?? []).map(item => (
             <div key={item.skill}>
               <div className="flex items-center gap-3 mb-1.5">
                 <GapArrow gap={item.gap} />
@@ -356,7 +313,7 @@ console.log(twin);
         <GlassCard>
           <h3 className="text-sm font-semibold text-slate-300 mb-4">Future Role Predictions</h3>
           <div className="space-y-3">
-            {twin.futureRoles.map((role, i) => (
+            {(twin.futureRoles ?? []).map((role, i) => (
               <button key={i} onClick={() => setActiveRole(i)}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left
                   ${activeRole === i ? 'bg-cyan-500/10 ring-1 ring-cyan-500/20' : 'bg-white/5 hover:bg-white/10'}`}>
@@ -418,7 +375,7 @@ console.log(twin);
 </h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {twin.recommendations.map(rec => (
+          {(twin.recommendations ?? []).map(rec => (
             <div key={rec.priority}
               className="group relative p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all cursor-pointer overflow-hidden">
               <div className="flex items-start gap-3">
