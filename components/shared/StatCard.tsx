@@ -23,16 +23,16 @@ const colorMap = {
 export default function StatCard({ title, value, sub, icon: Icon, color = 'cyan', trend }: StatCardProps) {
   const c = colorMap[color];
   return (
-    <div className={`relative overflow-hidden rounded-2xl border border-white/5
-      bg-slate-900/60 backdrop-blur-xl p-5 ring-1 ${c.ring}
+    <div className={`relative overflow-hidden rounded-2xl border border-border/70
+      bg-card/80 backdrop-blur-xl p-5 ring-1 ${c.ring}
       hover:shadow-lg transition-shadow group`}>
       <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full blur-2xl opacity-20 group-hover:opacity-30 transition-opacity"
         style={{ background: 'currentColor' }} />
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">{title}</p>
-          <p className="mt-2 text-2xl font-bold text-white">{value}</p>
-          {sub && <p className="mt-0.5 text-xs text-slate-500">{sub}</p>}
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{title}</p>
+          <p className="mt-2 text-2xl font-bold text-foreground">{value}</p>
+          {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
           {trend && (
             <span className={`inline-flex items-center gap-1 mt-2 text-xs font-semibold
               ${trend.up ? 'text-emerald-400' : 'text-rose-400'}`}>
