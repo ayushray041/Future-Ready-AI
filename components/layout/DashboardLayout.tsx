@@ -99,7 +99,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <SidebarContext.Provider value={{ collapsed, toggle: () => setCollapsed(p => !p) }}>
-      <div className="min-h-screen bg-background text-foreground flex">
+      <div className="min-h-screen bg-background text-foreground flex transition-colors duration-200">
 
         {/* ── Mobile overlay ── */}
         {mobileOpen && (
@@ -112,18 +112,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* ── Sidebar ── */}
         <aside className={`
           fixed top-0 left-0 h-screen z-50 flex flex-col
-          border-r border-white/5 bg-slate-900/80 backdrop-blur-xl
+          border-r border-border/70 bg-background/95 backdrop-blur-xl
           transition-all duration-300
           ${sidebarW}
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0 lg:relative lg:flex-shrink-0
         `}>
           {/* Logo */}
-          <div className={`flex items-center gap-3 px-4 py-5 border-b border-white/5 ${collapsed ? 'justify-center' : ''}`}>
+          <div className={`flex items-center gap-3 px-4 py-5 border-b border-border/70 ${collapsed ? 'justify-center' : ''}`}>
             <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center flex-shrink-0">
               <Zap className="h-4 w-4 text-white" />
             </div>
-            {!collapsed && <span className="font-bold text-white text-lg tracking-tight">FutureReady</span>}
+            {!collapsed && <span className="font-bold text-foreground text-lg tracking-tight">FutureReady</span>}
           </div>
 
           {/* Nav */}
@@ -139,8 +139,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium
                     transition-all duration-150 group relative
                     ${active
-                      ? 'bg-cyan-500/10 text-cyan-400 shadow-sm ring-1 ring-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-white/5'}
+                      ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shadow-sm ring-1 ring-cyan-500/20'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/70'}
                     ${collapsed ? 'justify-center' : ''}
                   `}
                 >
@@ -150,7 +150,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <div className="ml-auto h-1.5 w-1.5 rounded-full bg-cyan-400" />
                   )}
                   {collapsed && (
-                    <div className="absolute left-full ml-2 px-2 py-1 rounded-md bg-slate-800 text-xs text-white
+                    <div className="absolute left-full ml-2 px-2 py-1 rounded-md bg-popover text-xs text-foreground
                       opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50 shadow-lg">
                       {label}
                     </div>
@@ -164,26 +164,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={() => setCollapsed(p => !p)}
             className="hidden lg:flex items-center justify-center mx-3 mb-3 py-2 rounded-xl
-              border border-white/5 text-slate-500 hover:text-slate-300 hover:bg-white/5
+              border border-border/70 text-muted-foreground hover:text-foreground hover:bg-accent/70
               transition-colors text-xs gap-1.5"
           >
             {collapsed ? <ChevronRight className="h-4 w-4" /> : <><ChevronLeft className="h-4 w-4" /><span>Collapse</span></>}
           </button>
 
           {/* User footer */}
-          <div className={`border-t border-white/5 p-3 flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
+          <div className={`border-t border-border/70 p-3 flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
             <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-500 to-slate-700
               flex items-center justify-center text-xs font-bold text-white flex-shrink-0">
               {profile?.displayName?.split(' ').map(part => part[0]).slice(0, 2).join('').toUpperCase() || 'US'}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold text-white truncate">{profile?.displayName || 'User'}</p>
-                <p className="text-xs text-slate-500 truncate">{profile ? `${profile.year} · ${profile.branch}` : 'Not signed in'}</p>
+                <p className="text-xs font-semibold text-foreground truncate">{profile?.displayName || 'User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{profile ? `${profile.year} · ${profile.branch}` : 'Not signed in'}</p>
               </div>
             )}
             {!collapsed && (
-              <button onClick={handleLogout} className="text-slate-500 hover:text-red-400 transition-colors">
+              <button onClick={handleLogout} className="text-muted-foreground hover:text-red-400 transition-colors">
                 <LogOut className="h-4 w-4" />
               </button>
             )}
@@ -194,10 +194,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="flex-1 flex flex-col min-w-0">
           {/* Top navbar */}
           <header className="sticky top-0 z-30 flex items-center gap-4 px-4 lg:px-6 py-3
-            border-b border-white/5 bg-slate-900/60 backdrop-blur-xl">
+            border-b border-border/70 bg-background/80 backdrop-blur-xl">
             <button
               onClick={() => setMobileOpen(p => !p)}
-              className="lg:hidden text-slate-400 hover:text-white"
+              className="lg:hidden text-muted-foreground hover:text-foreground"
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -208,8 +208,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <input
                 type="text"
                 placeholder="Search skills, opportunities…"
-                className="w-full bg-white/5 border border-white/5 rounded-xl pl-9 pr-4 py-2
-                  text-sm text-slate-300 placeholder:text-slate-600
+                className="w-full bg-background/70 border border-border/70 rounded-xl pl-9 pr-4 py-2
+                  text-sm text-foreground placeholder:text-muted-foreground
                   focus:outline-none focus:ring-1 focus:ring-cyan-500/50 focus:border-cyan-500/30"
               />
             </div>
@@ -234,15 +234,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     html.classList.add('dark');
                   }
                 }}
-                className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center
-                  text-slate-400 hover:text-white transition-colors"
+                className="h-8 w-8 rounded-lg bg-accent/70 flex items-center justify-center
+                  text-muted-foreground hover:text-foreground transition-colors"
               >
                 {activeTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
 
               {/* Notifications */}
-              <button className="relative h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center
-                text-slate-400 hover:text-white transition-colors">
+              <button className="relative h-8 w-8 rounded-lg bg-accent/70 flex items-center justify-center
+                text-muted-foreground hover:text-foreground transition-colors">
                 <Bell className="h-4 w-4" />
                 <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-cyan-400" />
               </button>

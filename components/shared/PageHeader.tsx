@@ -11,12 +11,12 @@ export default function PageHeader({ title, description, badge, action }: PageHe
       <div>
         {badge && (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full
-            bg-cyan-500/10 text-cyan-400 text-xs font-semibold mb-2 ring-1 ring-cyan-500/20">
+            bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 text-xs font-semibold mb-2 ring-1 ring-cyan-500/20">
             {badge}
           </span>
         )}
-        <h1 className="text-2xl font-bold text-white">{title}</h1>
-        {description && <p className="text-sm text-slate-400 mt-1">{description}</p>}
+        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+        {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
       </div>
       {action && <div className="flex-shrink-0">{action}</div>}
     </div>

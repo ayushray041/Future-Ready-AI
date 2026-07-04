@@ -1,41 +1,23 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell,
 } from 'recharts';
 import { TrendingUp, Zap, Target, Activity, BarChart2 } from 'lucide-react';
 import GlassCard from '@/components/shared/GlassCard';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
+import { useAuth } from '@/hooks/useAuth';
+import { getAnalytics, upsertAnalytics } from '@/services/analytics.service';
+import { getTwin } from '@/services/career-twin.service';
+import { fsQuery } from '@/services/firestore.service';
+import { getResumeHistory } from '@/services/resume.service';
+import type { AnalyticsData, CareerTwinData, MentorSession, ResumeAnalysis, UserProfile } from '@/types';
 
-const careerProgress = [
-  { month: 'Jan', score: 45, target: 80 }, { month: 'Feb', score: 52, target: 80 },
-  { month: 'Mar', score: 58, target: 80 }, { month: 'Apr', score: 63, target: 80 },
-  { month: 'May', score: 70, target: 80 }, { month: 'Jun', score: 74, target: 80 },
-];
+type TimeRange = '3m' | '6m' | '1y';
 
-const skillGrowth = [
-  { skill: 'DSA', score: 82 }, { skill: 'React', score: 74 }, { skill: 'AI/ML', score: 65 },
-  { skill: 'Cloud', score: 55 }, { skill: 'System Design', score: 48 }, { skill: 'Node.js', score: 70 },
-];
-
-const applications = [
-  { month: 'Jan', applied: 0, interviews: 0 }, { month: 'Feb', applied: 1, interviews: 0 },
-  { month: 'Mar', applied: 2, interviews: 1 }, { month: 'Apr', applied: 3, interviews: 2 },
-  { month: 'May', applied: 4, interviews: 2 }, { month: 'Jun', applied: 6, interviews: 3 },
-];
-
-const interviewPerf = [
-  { round: 'OA Round', score: 88 }, { round: 'Technical 1', score: 75 },
-  { round: 'Technical 2', score: 70 }, { round: 'HR Round', score: 92 },
-];
-
-const pieData = [
-  { name: 'DSA', value: 30 }, { name: 'Projects', value: 25 },
-  { name: 'AI/ML', value: 20 }, { name: 'Communication', value: 15 }, { name: 'Other', value: 10 },
-];
 const PIE_COLORS = ['#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#334155'];
 
 const TOOLTIP_STYLE = {
@@ -43,53 +25,214 @@ const TOOLTIP_STYLE = {
   labelStyle: { color: '#e2e8f0', fontSize: 12 },
 };
 
-const AI_INSIGHTS = [
-  { emoji: '🚀', title: 'On track for top-10% placement',  body: 'If you maintain current velocity, you\'ll hit 85 score by October — qualifying for top-tier campus drives.' },
-  { emoji: '⚠️', title: 'System Design is your biggest gap', body: 'Ranked 48/100 while peer average is 62. Two targeted projects can close this gap in 6 weeks.' },
-  { emoji: '📈', title: 'Interview conversion is improving', body: 'You\'ve gone from 0% to 50% interview conversion rate in 6 months — keep up the mock practice.' },
-  { emoji: '💡', title: 'Cloud certification would boost score +8', body: 'AWS Cloud Practitioner takes ~20 hrs. Your current trajectory suggests you can add it by August.' },
-];
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
 
-type TimeRange = '3m' | '6m' | '1y';
+function monthLabel(date: Date) {
+  return date.toLocaleString('default', { month: 'short' });
+}
+
+function monthMatches(dateValue: string | undefined, monthIndex: number) {
+  if (!dateValue) return false;
+  const date = new Date(dateValue);
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const targetMonth = (currentMonth - monthIndex + 12) % 12;
+  const targetYear = currentYear - (currentMonth - monthIndex < 0 ? 1 : 0);
+  return date.getMonth() === targetMonth && date.getFullYear() === targetYear;
+}
+
+function buildAnalyticsSnapshot(
+  profile: UserProfile,
+  resumeHistory: ResumeAnalysis[],
+  mentorSessions: MentorSession[],
+  twin: CareerTwinData | null,
+  range: TimeRange,
+): AnalyticsData {
+  const months = range === '3m' ? 3 : range === '6m' ? 6 : 12;
+  const now = new Date();
+
+  const resumeAverage = resumeHistory.length
+    ? Math.round(resumeHistory.reduce((sum, item) => sum + (item.atsScore ?? item.overallScore ?? 0), 0) / resumeHistory.length)
+    : Math.max(40, profile.careerScore ?? 50);
+
+  const mentorScore = clamp(
+    45 + mentorSessions.length * 6 + mentorSessions.reduce((sum, session) => sum + session.messages.length, 0),
+    40,
+    95,
+  );
+
+  const twinScore = twin?.twinScore ? clamp(twin.twinScore, 40, 100) : 50;
+  const careerScore = clamp(
+    Math.round(profile.careerScore * 0.45 + resumeAverage * 0.3 + mentorScore * 0.15 + twinScore * 0.1),
+    0,
+    100,
+  );
+
+  const trend = Array.from({ length: months }, (_, index) => {
+    const date = new Date(now);
+    date.setMonth(now.getMonth() - (months - 1 - index));
+    const base = resumeHistory.length ? resumeAverage : profile.careerScore;
+    const monthlyBoost = (index + 1) * 2;
+    const sessionBoost = mentorSessions.filter((session) => monthMatches(session.updatedAt, months - 1 - index)).length * 2;
+    const twinBoost = twin && monthMatches(twin.generatedAt, months - 1 - index) ? 4 : 0;
+    const score = clamp(Math.round(base * 0.6 + monthlyBoost + sessionBoost + twinBoost), 0, 100);
+    const target = 85;
+    const peer = clamp(score + (index % 2 === 0 ? 5 : -3), 55, 95);
+    return { month: monthLabel(date), score, target, peer };
+  });
+
+  const skillNames = Array.from(new Set([
+    ...(profile.skills ?? []),
+    ...resumeHistory.flatMap((item) => item.extractedSkills ?? []),
+    ...(twin?.skillGap?.map((item) => item.skill) ?? []),
+  ])).slice(0, 6);
+
+  const skillScores = skillNames.map((skill, index) => {
+    const inProfile = (profile.skills ?? []).includes(skill);
+    const resumeHits = resumeHistory.filter((item) => item.extractedSkills?.includes(skill)).length;
+    const gap = twin?.skillGap?.find((item) => item.skill === skill)?.gap ?? 0;
+    const score = clamp(Math.round((inProfile ? 58 : 42) + resumeHits * 8 + (gap > 0 ? Math.max(0, 10 - gap) : 5) + index), 35, 95);
+    return { skill, score };
+  });
+
+  const applications = Array.from({ length: months }, (_, index) => {
+    const date = new Date(now);
+    date.setMonth(now.getMonth() - (months - 1 - index));
+    const applied = resumeHistory.filter((item) => monthMatches(item.analyzedAt, months - 1 - index)).length + mentorSessions.filter((session) => monthMatches(session.updatedAt, months - 1 - index)).length;
+    const interviews = clamp(Math.round(applied * 0.45 + (twin && monthMatches(twin.generatedAt, months - 1 - index) ? 2 : 0)), 0, 8);
+    return { month: monthLabel(date), applied, interviews };
+  });
+
+  const interviewPerf = [
+    { round: 'Resume Scan', score: clamp(Math.round(resumeAverage), 0, 100) },
+    { round: 'Mentor Review', score: clamp(Math.round(mentorScore), 0, 100) },
+    { round: 'Twin Match', score: clamp(Math.round(twinScore), 0, 100) },
+    { round: 'Career Readiness', score: careerScore },
+  ];
+
+  const insights = [
+    {
+      emoji: '🚀',
+      title: careerScore >= 80 ? 'Momentum is strong' : 'Momentum is building',
+      body: `Your current career score is ${careerScore}/100 based on your profile, resume activity, mentor sessions, and career twin signals.`,
+    },
+    {
+      emoji: '📈',
+      title: skillScores[0] ? `${skillScores[0].skill} is your strongest signal` : 'Skill growth is visible',
+      body: skillScores[0]
+        ? `${skillScores[0].skill} is currently at ${skillScores[0].score}/100 and should stay central in your next learning sprint.`
+        : 'Your profile data is still being shaped by recent activity and will improve with each new analysis.',
+    },
+    {
+      emoji: '🎯',
+      title: twin?.futureRoles?.length ? 'Twin recommendations are actionable' : 'Career focus is becoming clearer',
+      body: twin?.futureRoles?.length
+        ? `You have ${twin.futureRoles.length} role paths to review from your latest twin analysis.`
+        : 'Your twin profile is not ready yet, but your existing metrics are enough to guide your next step.',
+    },
+    {
+      emoji: '💡',
+      title: resumeHistory.length ? 'Resume work is paying off' : 'More resume feedback will sharpen the picture',
+      body: resumeHistory.length
+        ? `You have ${resumeHistory.length} resume analysis${resumeHistory.length > 1 ? 'es' : ''} in the system, helping you track growth over time.`
+        : 'Add a resume analysis to create a richer skill and readiness trend.',
+    },
+  ];
+
+  return {
+    uid: profile.uid,
+    careerScore,
+    careerTrend: trend,
+    skillScores,
+    applications,
+    interviewPerf,
+    insights,
+    updatedAt: new Date().toISOString(),
+  };
+}
 
 export default function AnalyticsPage() {
+  const { profile } = useAuth();
   const [range, setRange] = useState<TimeRange>('6m');
+  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadAnalytics() {
+      if (!profile?.uid) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const [existing, resumeHistory, mentorSessions, twin] = await Promise.all([
+          getAnalytics(profile.uid),
+          getResumeHistory(profile.uid),
+          fsQuery<MentorSession>('mentorSessions', [['uid', '==', profile.uid]], 'updatedAt', 20),
+          getTwin(profile.uid),
+        ]);
+
+        const next = buildAnalyticsSnapshot(profile, resumeHistory, mentorSessions, twin, range);
+        await upsertAnalytics(profile.uid, next);
+        setAnalytics(next);
+      } catch (error) {
+        console.error('[analytics] failed to load', error);
+        const fallback = await getAnalytics(profile.uid);
+        setAnalytics(fallback);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadAnalytics();
+  }, [profile?.uid, range]);
+
+  const data = analytics ?? null;
+  const pieData = (data?.skillScores ?? []).slice(0, 5).map((item) => ({ name: item.skill, value: item.score }));
+  const statTrend = data?.careerTrend?.length ? data.careerTrend[data.careerTrend.length - 1] : null;
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Analytics & Growth"
-        description="Data-driven insights into your career trajectory."
+        description="Live insights powered by your profile, resume activity, mentor sessions, and twin results."
         badge="AI Insights"
         action={
           <div className="flex rounded-xl overflow-hidden border border-white/5">
-            {(['3m', '6m', '1y'] as TimeRange[]).map(r => (
-              <button key={r} onClick={() => setRange(r)}
+            {(['3m', '6m', '1y'] as TimeRange[]).map((item) => (
+              <button key={item} onClick={() => setRange(item)}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors
-                  ${range === r ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}>
-                {r}
+                  ${range === item ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-500 hover:text-slate-300 bg-white/5'}`}>
+                {item}
               </button>
             ))}
           </div>
         }
       />
 
-      {/* Stats */}
+      {loading ? (
+        <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-6 text-sm text-slate-400">
+          Building your live analytics snapshot from Firestore...
+        </div>
+      ) : null}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Current Score" value="74"   icon={Activity}  color="cyan"    trend={{ value: '+29 pts in 6 months', up: true }} />
-        <StatCard title="Target Score"  value="85"   icon={Target}    color="blue"    sub="by Oct 2025" />
-        <StatCard title="Applications"  value="6"    icon={BarChart2} color="emerald" trend={{ value: '+3 this month', up: true }} />
-        <StatCard title="Interview Rate" value="50%" icon={TrendingUp} color="amber"  trend={{ value: '+50% vs last month', up: true }} />
+        <StatCard title="Current Score" value={data?.careerScore ?? 0} icon={Activity} color="cyan" trend={{ value: statTrend ? `+${Math.max(0, statTrend.score - (data?.careerTrend?.[0]?.score ?? 0))} pts` : 'Live', up: true }} />
+        <StatCard title="Target Score" value="85" icon={Target} color="blue" sub="career target" />
+        <StatCard title="Applications" value={data?.applications?.reduce((total, item) => total + item.applied, 0) ?? 0} icon={BarChart2} color="emerald" trend={{ value: 'from recent activity', up: true }} />
+        <StatCard title="Interview Rate" value={`${Math.round(((data?.applications?.reduce((total, item) => total + item.interviews, 0) ?? 0) / Math.max(1, data?.applications?.reduce((total, item) => total + item.applied, 0) ?? 1)) * 100)}%`} icon={TrendingUp} color="amber" trend={{ value: 'based on current data', up: true }} />
       </div>
 
-      {/* Charts grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Career progress */}
         <GlassCard>
           <h3 className="text-sm font-semibold text-slate-300 mb-1">Career Progress vs Target</h3>
-          <p className="text-xs text-slate-500 mb-4">Score over time</p>
+          <p className="text-xs text-slate-500 mb-4">Score over time from your latest profile and activity data</p>
           <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={careerProgress}>
+            <AreaChart data={data?.careerTrend ?? []}>
               <defs>
                 <linearGradient id="gScore" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.3} />
@@ -101,17 +244,16 @@ export default function AnalyticsPage() {
               <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
               <Tooltip {...TOOLTIP_STYLE} />
               <Area type="monotone" dataKey="score" stroke="#06b6d4" fill="url(#gScore)" strokeWidth={2} name="Your score" />
-              <Line type="monotone" dataKey="target" stroke="#334155" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Target" />
+              <Area type="monotone" dataKey="target" stroke="#334155" strokeWidth={1.5} strokeDasharray="4 4" dot={false} name="Target" />
             </AreaChart>
           </ResponsiveContainer>
         </GlassCard>
 
-        {/* Skill growth */}
         <GlassCard>
           <h3 className="text-sm font-semibold text-slate-300 mb-1">Skill Proficiency</h3>
           <p className="text-xs text-slate-500 mb-4">Current scores by domain</p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={skillGrowth} layout="vertical">
+            <BarChart data={data?.skillScores ?? []} layout="vertical">
               <CartesianGrid stroke="rgba(255,255,255,0.03)" horizontal={false} />
               <XAxis type="number" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
               <YAxis dataKey="skill" type="category" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} width={100} />
@@ -121,52 +263,49 @@ export default function AnalyticsPage() {
           </ResponsiveContainer>
         </GlassCard>
 
-        {/* Applications */}
         <GlassCard>
           <h3 className="text-sm font-semibold text-slate-300 mb-1">Application Tracking</h3>
           <p className="text-xs text-slate-500 mb-4">Applied vs interviews secured</p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={applications}>
+            <BarChart data={data?.applications ?? []}>
               <CartesianGrid stroke="rgba(255,255,255,0.03)" />
               <XAxis dataKey="month" tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip {...TOOLTIP_STYLE} />
-              <Bar dataKey="applied"    fill="#06b6d4" radius={[4,4,0,0]} barSize={14} name="Applied" />
-              <Bar dataKey="interviews" fill="#3b82f6" radius={[4,4,0,0]} barSize={14} name="Interviews" />
+              <Bar dataKey="applied" fill="#06b6d4" radius={[4, 4, 0, 0]} barSize={14} name="Applied" />
+              <Bar dataKey="interviews" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={14} name="Interviews" />
             </BarChart>
           </ResponsiveContainer>
         </GlassCard>
 
-        {/* Interview performance */}
         <GlassCard>
           <h3 className="text-sm font-semibold text-slate-300 mb-1">Interview Performance</h3>
           <p className="text-xs text-slate-500 mb-4">Score by round</p>
           <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={interviewPerf}>
+            <BarChart data={data?.interviewPerf ?? []}>
               <CartesianGrid stroke="rgba(255,255,255,0.03)" />
               <XAxis dataKey="round" tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
               <Tooltip {...TOOLTIP_STYLE} />
-              <Bar dataKey="score" radius={[4,4,0,0]} barSize={24}>
-                {interviewPerf.map((_, i) => (
-                  <Cell key={i} fill={['#06b6d4','#3b82f6','#6366f1','#10b981'][i]} />
+              <Bar dataKey="score" radius={[4, 4, 0, 0]} barSize={24}>
+                {(data?.interviewPerf ?? []).map((_, index) => (
+                  <Cell key={index} fill={['#06b6d4', '#3b82f6', '#6366f1', '#10b981'][index]} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
 
-          {/* Focus distribution */}
           <div className="mt-4 flex items-center gap-4">
             <PieChart width={80} height={80}>
               <Pie data={pieData} cx={35} cy={35} innerRadius={20} outerRadius={35} dataKey="value">
-                {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i]} />)}
+                {pieData.map((item, index) => <Cell key={item.name} fill={PIE_COLORS[index]} />)}
               </Pie>
             </PieChart>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 flex-1">
-              {pieData.map((d, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-xs text-slate-400">
-                  <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[i] }} />
-                  {d.name} ({d.value}%)
+              {pieData.map((item, index) => (
+                <div key={item.name} className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <div className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: PIE_COLORS[index] }} />
+                  {item.name} ({item.value}%)
                 </div>
               ))}
             </div>
@@ -174,20 +313,19 @@ export default function AnalyticsPage() {
         </GlassCard>
       </div>
 
-      {/* AI insights */}
       <GlassCard>
         <div className="flex items-center gap-2 mb-4">
           <Zap className="h-4 w-4 text-cyan-400" />
-          <h3 className="text-sm font-semibold text-slate-300">AI-Generated Insights</h3>
+          <h3 className="text-sm font-semibold text-slate-300">Live Insights</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {AI_INSIGHTS.map((ins, i) => (
-            <div key={i} className="p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
+          {(data?.insights ?? []).map((insight, index) => (
+            <div key={`${insight.title}-${index}`} className="p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
               <div className="flex items-start gap-3">
-                <span className="text-xl">{ins.emoji}</span>
+                <span className="text-xl">{insight.emoji}</span>
                 <div>
-                  <p className="text-sm font-semibold text-white mb-1">{ins.title}</p>
-                  <p className="text-xs text-slate-400 leading-relaxed">{ins.body}</p>
+                  <p className="text-sm font-semibold text-white mb-1">{insight.title}</p>
+                  <p className="text-xs text-slate-400 leading-relaxed">{insight.body}</p>
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   User, Bell, Lock, Palette, AlertTriangle,
   Save, CheckCircle, Loader2, ChevronRight, Eye, EyeOff,
@@ -11,6 +12,10 @@ import PageHeader from '@/components/shared/PageHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { updateUser } from '@/services/user.service';
 import { authService } from '@/services/auth.service';
+import { deleteUser, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { deleteDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 /* ─────────────────────────────────────────────────────────────
    TOGGLE COMPONENT
@@ -85,6 +90,7 @@ interface PrivacyPreferences {
 type ThemeOption = 'dark' | 'light' | 'system';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { profile, refreshProfile } = useAuth();
 
   /* Account */
@@ -130,35 +136,59 @@ export default function SettingsPage() {
 
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [savedPrefs, setSavedPrefs] = useState(false);
+  const [prefsError, setPrefsError] = useState('');
 
   /* Danger */
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput]             = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [destroyError, setDestroyError] = useState('');
+  const [signingOutAll, setSigningOutAll] = useState(false);
+  const [signOutMessage, setSignOutMessage] = useState('');
 
   async function saveAccount() {
+    if (!profile?.uid) return;
     setSavingAccount(true);
-    await new Promise(r => setTimeout(r, 800));
-    setSavingAccount(false);
-    setSavedAccount(true);
-    setTimeout(() => setSavedAccount(false), 2500);
+    try {
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { displayName: name });
+      }
+      await updateUser(profile.uid, {
+        displayName: name,
+        email,
+      });
+      await refreshProfile();
+      setSavedAccount(true);
+      setTimeout(() => setSavedAccount(false), 2500);
+    } catch (error) {
+      setPwError(error instanceof Error ? error.message : 'Unable to update account details.');
+    } finally {
+      setSavingAccount(false);
+    }
   }
 
   async function savePreferences() {
     if (!profile) return;
     setSavingPrefs(true);
-    const payload = {
-      notifications: notifs,
-      privacy,
-      theme,
-      accentColor,
-      compactMode,
-      reducedMotion,
-    };
-    await updateUser(profile.uid, payload);
-    await refreshProfile();
-    setSavingPrefs(false);
-    setSavedPrefs(true);
-    setTimeout(() => setSavedPrefs(false), 2500);
+    setPrefsError('');
+    try {
+      const payload = {
+        notifications: notifs,
+        privacy,
+        theme,
+        accentColor,
+        compactMode,
+        reducedMotion,
+      };
+      await updateUser(profile.uid, payload);
+      await refreshProfile();
+      setSavedPrefs(true);
+      setTimeout(() => setSavedPrefs(false), 2500);
+    } catch (error) {
+      setPrefsError(error instanceof Error ? error.message : 'Unable to save preferences.');
+    } finally {
+      setSavingPrefs(false);
+    }
   }
 
   async function changePassword() {
@@ -180,6 +210,46 @@ export default function SettingsPage() {
     } finally {
       setSavingPw(false);
       setTimeout(() => setSavedPw(false), 2500);
+    }
+  }
+
+  async function signOutAllDevices() {
+    if (!profile?.uid) return;
+    setSigningOutAll(true);
+    setSignOutMessage('');
+    try {
+      await authService.signOut();
+      setSignOutMessage('You have been signed out from this device.');
+      router.push('/login');
+    } catch (error) {
+      setSignOutMessage(error instanceof Error ? error.message : 'Unable to sign out.');
+    } finally {
+      setSigningOutAll(false);
+    }
+  }
+
+  async function deleteAccount() {
+    if (!profile?.uid || !auth.currentUser) return;
+    setDeletingAccount(true);
+    setDestroyError('');
+
+    try {
+      const currentPassword = window.prompt('Enter your current password to confirm account deletion:');
+      if (!currentPassword) {
+        setDestroyError('Password confirmation is required.');
+        return;
+      }
+
+      const credential = EmailAuthProvider.credential(auth.currentUser.email!, currentPassword);
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await deleteDoc(doc(db, 'users', profile.uid));
+      await deleteUser(auth.currentUser);
+      await authService.signOut();
+      router.push('/login');
+    } catch (error) {
+      setDestroyError(error instanceof Error ? error.message : 'Unable to delete account.');
+    } finally {
+      setDeletingAccount(false);
     }
   }
 
@@ -367,6 +437,7 @@ export default function SettingsPage() {
         </SettingRow>
 
         <div className="pt-3 border-t border-white/5">
+          {prefsError && <p className="mb-3 text-xs text-rose-400">{prefsError}</p>}
           <button onClick={savePreferences} disabled={savingPrefs}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600
               text-sm font-semibold text-white hover:from-cyan-400 hover:to-blue-500 disabled:opacity-60 transition-all
@@ -391,8 +462,9 @@ export default function SettingsPage() {
           <SettingRow
             label="Sign Out All Devices"
             description="Immediately revoke all active sessions across all devices.">
-            <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 text-xs font-medium text-slate-400 hover:text-rose-400 hover:border-rose-500/30 transition-all">
-              <LogOut className="h-3.5 w-3.5" /> Sign Out All
+            <button onClick={signOutAllDevices} disabled={signingOutAll}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-white/10 text-xs font-medium text-slate-400 hover:text-rose-400 hover:border-rose-500/30 transition-all disabled:opacity-60">
+              {signingOutAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />} Sign Out All
             </button>
           </SettingRow>
 
@@ -402,6 +474,9 @@ export default function SettingsPage() {
             <p className="text-xs text-slate-500 mb-4">
               Permanently delete your account and all associated data. This action cannot be undone.
             </p>
+
+            {signOutMessage && <p className="text-xs text-emerald-400">{signOutMessage}</p>}
+            {destroyError && <p className="text-xs text-rose-400">{destroyError}</p>}
 
             {!showDeleteConfirm ? (
               <button onClick={() => setShowDeleteConfirm(true)}
@@ -423,10 +498,11 @@ export default function SettingsPage() {
                 />
                 <div className="flex gap-2">
                   <button
-                    disabled={deleteInput !== 'DELETE'}
+                    onClick={deleteAccount}
+                    disabled={deleteInput !== 'DELETE' || deletingAccount}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600
                       text-sm font-semibold text-white disabled:opacity-40 hover:bg-rose-500 transition-all">
-                    <Trash2 className="h-4 w-4" /> Confirm Delete
+                    {deletingAccount ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Confirm Delete
                   </button>
                   <button onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); }}
                     className="px-4 py-2 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all">
