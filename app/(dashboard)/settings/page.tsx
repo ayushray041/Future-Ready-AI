@@ -289,14 +289,14 @@ export default function SettingsPage() {
           <div>
             <label className="block text-xs text-slate-500 mb-1.5">Full name</label>
             <input value={name} onChange={e => setName(e.target.value)}
-              className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-white
-                focus:outline-none focus:ring-1 focus:ring-cyan-500/40 transition-colors" />
+              className="w-full rounded-xl border border-border/70 bg-background/70 px-4 py-2.5 text-sm text-foreground
+                placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500/40 transition-colors" />
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1.5">Email address</label>
             <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-white
-                focus:outline-none focus:ring-1 focus:ring-cyan-500/40 transition-colors" />
+              className="w-full rounded-xl border border-border/70 bg-background/70 px-4 py-2.5 text-sm text-foreground
+                placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500/40 transition-colors" />
           </div>
         </div>
 
@@ -333,8 +333,8 @@ export default function SettingsPage() {
                   placeholder={label}
                   value={value}
                   onChange={e => set(e.target.value)}
-                  className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-2.5 pr-10 text-sm text-white
-                    placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 transition-colors"
+                  className="w-full rounded-xl border border-border/70 bg-background/70 px-4 py-2.5 pr-10 text-sm text-foreground
+                    placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500/40 transition-colors"
                 />
               </div>
             ))}
@@ -493,8 +493,8 @@ export default function SettingsPage() {
                   value={deleteInput}
                   onChange={e => setDeleteInput(e.target.value)}
                   placeholder="Type DELETE here"
-                  className="w-full bg-white/5 border border-rose-500/20 rounded-xl px-4 py-2.5 text-sm text-white
-                    placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-rose-500/40"
+                  className="w-full rounded-xl border border-rose-500/20 bg-background/70 px-4 py-2.5 text-sm text-foreground
+                    placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-rose-500/40"
                 />
                 <div className="flex gap-2">
                   <button
