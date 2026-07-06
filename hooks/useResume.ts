@@ -6,7 +6,7 @@
 // 4. Loads history from Firestore on demand
 
 import { useState, useCallback } from 'react';
-import { saveAnalysis, getResumeHistory } from '@/services/resume.service';
+import { saveAnalysis, getResumeHistory, clearResumeHistory } from '@/services/resume.service';
 import type { ResumeAnalysis } from '@/types';
 
 // ── Simple PDF → text extractor (no external dependency) ────
@@ -46,6 +46,7 @@ interface UseResumeReturn {
   error:       string;
   analyzeFile: (file: File, uid: string, targetRole: string) => Promise<void>;
   loadHistory: (uid: string) => Promise<void>;
+  clearHistory: (uid: string) => Promise<void>;
   selectItem:  (item: ResumeAnalysis) => void;
 }
 
@@ -113,10 +114,22 @@ export function useResume(): UseResumeReturn {
     }
   }, [analysis]);
 
+  // ── Clear saved history ───────────────────────────────────
+  const clearHistory = useCallback(async (uid: string) => {
+    try {
+      await clearResumeHistory(uid);
+      setHistory([]);
+      setAnalysis(null);
+    } catch (e) {
+      console.error('[useResume] clearHistory', e);
+      throw e;
+    }
+  }, []);
+
   // ── Switch displayed analysis from history ────────────────
   const selectItem = useCallback((item: ResumeAnalysis) => {
     setAnalysis(item);
   }, []);
 
-  return { analysis, history, loading, error, analyzeFile, loadHistory, selectItem };
+  return { analysis, history, loading, error, analyzeFile, loadHistory, clearHistory, selectItem };
 }
