@@ -43,13 +43,13 @@ export async function geminiChat(
   const body = {
     system_instruction: { parts: [{ text: system }] },
     contents: [...history, { role: 'user', parts: [{ text: userMsg }] }],
-   generationConfig: {
-  temperature: opts.temperature ?? 0.7,
-  maxOutputTokens: opts.maxTokens ?? 2048,
-  topK: 40,
-  topP: 0.95,
-  responseMimeType: "application/json",
-},
+    generationConfig: {
+      temperature: opts.temperature ?? 0.7,
+      maxOutputTokens: Math.min(opts.maxTokens ?? 1024, 1024),
+      topK: 40,
+      topP: 0.95,
+      responseMimeType: 'application/json',
+    },
   };
 
   const res = await fetch(`${BASE_URL}?key=${getKey()}`, {
@@ -98,7 +98,7 @@ export async function geminiJSON<T>(
 
   const raw = await geminiChat(jsonSystem, [], userMsg, {
     temperature: opts.temperature ?? 0.3,
-    maxTokens: opts.maxTokens ?? 2048,
+    maxTokens: opts.maxTokens ?? 1024,
   });
   console.log("========== GEMINI RAW RESPONSE ==========");
 console.log(raw);

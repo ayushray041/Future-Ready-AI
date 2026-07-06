@@ -36,7 +36,7 @@ async function extractPdfText(file: File): Promise<string> {
     .join(' ')
     .replace(/\s{2,}/g, ' ')
     .trim()
-    .slice(0, 8000); // Gemini context budget
+    .slice(0, 3500); // Keep the prompt compact to avoid Gemini truncation
 }
 
 interface UseResumeReturn {
