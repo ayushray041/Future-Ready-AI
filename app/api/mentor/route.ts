@@ -1,6 +1,6 @@
 // app/api/mentor/route.ts
 // Accepts { message, history, profile } from the client.
-// Builds a personalised system prompt, calls Gemini 1.5 Flash,
+// Builds a personalised system prompt, calls Gemini 2.5 Flash,
 // and returns { reply }.
 
 import { NextRequest, NextResponse } from 'next/server';

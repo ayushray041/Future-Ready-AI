@@ -112,7 +112,7 @@ export default function MentorPage() {
                   <div className="flex items-center gap-1.5">
                     <div className={`h-1.5 w-1.5 rounded-full ${sessionReady ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`} />
                     <p className={`text-xs ${sessionReady ? 'text-emerald-400' : 'text-slate-500'}`}>
-                      {sessionReady ? 'Online · Gemini 1.5 Flash' : 'Connecting…'}
+                      {sessionReady ? 'Online · Gemini 2.5 Flash' : 'Connecting…'}
                     </p>
                   </div>
                 </div>
