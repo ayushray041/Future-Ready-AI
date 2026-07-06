@@ -32,6 +32,24 @@ export interface ProfileAchievement {
   date: string;
 }
 
+export interface NotificationPreferences {
+  opportunityAlerts: boolean;
+  interviewReminders: boolean;
+  weeklyDigest: boolean;
+  mentorMessages: boolean;
+  achievementBadges: boolean;
+  productUpdates: boolean;
+  marketingEmails: boolean;
+}
+
+export interface PrivacyPreferences {
+  publicProfile: boolean;
+  showCareerScore: boolean;
+  showSkills: boolean;
+  allowDataAnalysis: boolean;
+  showInLeaderboard: boolean;
+}
+
 export interface UserProfile {
   uid: string;
   displayName: string;

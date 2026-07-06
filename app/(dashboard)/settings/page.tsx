@@ -12,7 +12,7 @@ import PageHeader from '@/components/shared/PageHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { updateUser } from '@/services/user.service';
 import { authService } from '@/services/auth.service';
-import { deleteUser, reauthenticateWithCredential, EmailAuthProvider, updateProfile } from 'firebase/auth';
+import { updateProfile } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { deleteDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -138,9 +138,34 @@ export default function SettingsPage() {
   const [savedPrefs, setSavedPrefs] = useState(false);
   const [prefsError, setPrefsError] = useState('');
 
+  function applyAppearancePreferences(nextTheme: ThemeOption, nextAccentColor: string, nextCompactMode: boolean, nextReducedMotion: boolean) {
+    if (typeof document === 'undefined') return;
+
+    const root = document.documentElement;
+    const isDark = nextTheme === 'dark' || (nextTheme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+    root.classList.toggle('dark', isDark);
+    root.classList.toggle('light', !isDark);
+    root.classList.toggle('compact-mode', nextCompactMode);
+    root.classList.toggle('reduced-motion', nextReducedMotion);
+
+    root.style.setProperty('--accent', nextAccentColor);
+    root.style.setProperty('--accent-foreground', getContrastColor(nextAccentColor));
+  }
+
+  function getContrastColor(hex: string) {
+    const normalized = hex.replace('#', '');
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+    return luminance > 0.5 ? '#0f172a' : '#ffffff';
+  }
+
   /* Danger */
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteInput, setDeleteInput]             = useState('');
+  const [deletePassword, setDeletePassword]       = useState('');
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [destroyError, setDestroyError] = useState('');
   const [signingOutAll, setSigningOutAll] = useState(false);
@@ -181,6 +206,7 @@ export default function SettingsPage() {
         reducedMotion,
       };
       await updateUser(profile.uid, payload);
+      applyAppearancePreferences(theme, accentColor, compactMode, reducedMotion);
       await refreshProfile();
       setSavedPrefs(true);
       setTimeout(() => setSavedPrefs(false), 2500);
@@ -234,18 +260,15 @@ export default function SettingsPage() {
     setDestroyError('');
 
     try {
-      const currentPassword = window.prompt('Enter your current password to confirm account deletion:');
-      if (!currentPassword) {
+      if (!deletePassword) {
         setDestroyError('Password confirmation is required.');
         return;
       }
 
-      const credential = EmailAuthProvider.credential(auth.currentUser.email!, currentPassword);
-      await reauthenticateWithCredential(auth.currentUser, credential);
       await deleteDoc(doc(db, 'users', profile.uid));
-      await deleteUser(auth.currentUser);
+      await authService.deleteAccount(deletePassword);
       await authService.signOut();
-      router.push('/login');
+      router.replace('/login');
     } catch (error) {
       setDestroyError(error instanceof Error ? error.message : 'Unable to delete account.');
     } finally {
@@ -260,6 +283,10 @@ export default function SettingsPage() {
   ];
 
   const ACCENT_COLORS = ['#06b6d4', '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
+
+  useEffect(() => {
+    applyAppearancePreferences(theme, accentColor, compactMode, reducedMotion);
+  }, [theme, accentColor, compactMode, reducedMotion]);
 
   useEffect(() => {
     if (!profile) return;
@@ -487,8 +514,16 @@ export default function SettingsPage() {
             ) : (
               <div className="p-4 rounded-xl bg-rose-500/5 border border-rose-500/20 space-y-3">
                 <p className="text-xs text-rose-300">
-                  Type <strong className="font-mono">DELETE</strong> to confirm account deletion:
+                  Enter your current password and type <strong className="font-mono">DELETE</strong> to confirm:
                 </p>
+                <input
+                  type="password"
+                  value={deletePassword}
+                  onChange={e => setDeletePassword(e.target.value)}
+                  placeholder="Current password"
+                  className="w-full rounded-xl border border-rose-500/20 bg-background/70 px-4 py-2.5 text-sm text-foreground
+                    placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-rose-500/40"
+                />
                 <input
                   value={deleteInput}
                   onChange={e => setDeleteInput(e.target.value)}
@@ -499,12 +534,12 @@ export default function SettingsPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={deleteAccount}
-                    disabled={deleteInput !== 'DELETE' || deletingAccount}
+                    disabled={deleteInput !== 'DELETE' || deletingAccount || !deletePassword}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600
                       text-sm font-semibold text-white disabled:opacity-40 hover:bg-rose-500 transition-all">
                     {deletingAccount ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />} Confirm Delete
                   </button>
-                  <button onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); }}
+                  <button onClick={() => { setShowDeleteConfirm(false); setDeleteInput(''); setDeletePassword(''); }}
                     className="px-4 py-2 rounded-xl border border-white/10 text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all">
                     Cancel
                   </button>
