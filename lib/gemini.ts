@@ -1,6 +1,6 @@
 // lib/gemini.ts
 // Server-side only — never imported from client components.
-// Wraps the Gemini 1.5 Flash REST API using native fetch so no extra
+// Wraps the Gemini 2.5 Flash REST API using native fetch so no extra
 // SDK package is required. Called exclusively from app/api/* route handlers.
 
 const BASE_URL =

@@ -9,6 +9,9 @@ import GlassCard from '@/components/shared/GlassCard';
 import PageHeader from '@/components/shared/PageHeader';
 import { useAuth } from '@/hooks/useAuth';
 import { updateUser } from '@/services/user.service';
+import { uploadAvatar } from '@/services/storage.service';
+import { auth } from '@/lib/firebase';
+import { updateProfile } from 'firebase/auth';
 
 /* ─────────────────────────────────────────────────────────────
    TYPES & DATA
@@ -33,23 +36,12 @@ const SKILL_OPTIONS = [
   'Data Structures', 'System Design', 'REST APIs', 'GraphQL', 'Git', 'CI/CD',
 ];
 
-const INIT_SKILLS = ['Python', 'React', 'TypeScript', 'Node.js', 'Machine Learning', 'SQL', 'Docker', 'Git', 'Data Structures', 'Next.js'];
+const INIT_SKILLS: string[] = [];
 
-const INIT_EDUCATION: Education[] = [
-  { id: 'e1', degree: 'B.Tech Computer Science Engineering', institution: 'NIT Warangal', year: '2023 – 2027', gpa: '8.4 / 10', editing: false },
-];
-const INIT_EXPERIENCE: Experience[] = [
-  { id: 'x1', role: 'Full Stack Developer Intern', company: 'TechStartup Pvt Ltd', period: 'May 2024 – Jul 2024', description: 'Built a customer analytics dashboard using React + Node.js, reducing report generation time by 60%. Deployed on AWS with Docker.', editing: false },
-];
-const INIT_CERTS: Certification[] = [
-  { id: 'c1', name: 'Google Cloud Digital Leader', issuer: 'Google Cloud', date: 'Jan 2024', credentialUrl: '#' },
-  { id: 'c2', name: 'Meta Front-End Developer', issuer: 'Coursera / Meta', date: 'Nov 2023', credentialUrl: '#' },
-];
-const INIT_ACHIEVEMENTS: Achievement[] = [
-  { id: 'a1', title: '🥈 2nd Place – Smart India Hackathon 2024', description: 'Built an AI-powered crop disease detection app with 94% accuracy, serving 200+ farmers in the pilot.', date: 'Oct 2024' },
-  { id: 'a2', title: '⭐ Google Summer of Code Contributor', description: 'Contributed ML feature to an open-source computer vision library. 3 PRs merged.', date: 'Aug 2024' },
-  { id: 'a3', title: '🏆 LeetCode – 500+ Problems Solved', description: 'Achieved Knight badge (top 5%) on LeetCode with a max rating of 1876.', date: 'Ongoing' },
-];
+const INIT_EDUCATION: Education[] = [];
+const INIT_EXPERIENCE: Experience[] = [];
+const INIT_CERTS: Certification[] = [];
+const INIT_ACHIEVEMENTS: Achievement[] = [];
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -102,6 +94,9 @@ export default function ProfilePage() {
   const [basicDraft, setBasicDraft] = useState(basic);
   const [savingBasic, setSavingBasic] = useState(false);
   const [savedBasic, setSavedBasic] = useState(false);
+  const [clearingSections, setClearingSections] = useState(false);
+  const [clearMessage, setClearMessage] = useState('');
+  const [clearError, setClearError] = useState('');
 
   /* Skills */
   const [skills, setSkills] = useState<string[]>(['Python', 'React', 'TypeScript', 'Node.js', 'Machine Learning', 'SQL', 'Docker', 'Git', 'Data Structures', 'Next.js']);
@@ -167,6 +162,35 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<Tab>('overview');
 
   /* ── Handlers ── */
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarProgress, setAvatarProgress] = useState<number | null>(null);
+  const [avatarError, setAvatarError] = useState('');
+  const fileInputRef = (null as unknown) as React.MutableRefObject<HTMLInputElement | null>;
+
+  async function handleFile(file: File) {
+    if (!profile) return;
+    setAvatarUploading(true);
+    setAvatarProgress(0);
+    setAvatarError('');
+    try {
+      const url = await uploadAvatar(file, profile.uid, p => setAvatarProgress(p));
+      // update firestore and auth profile
+      await updateUser(profile.uid, { photoURL: url });
+      if (auth.currentUser) {
+        await updateProfile(auth.currentUser, { photoURL: url });
+      }
+      await refreshProfile();
+      // clear file input to allow re-upload of same file later
+      const el = document.getElementById('avatar-upload') as HTMLInputElement | null;
+      if (el) el.value = '';
+    } catch (err: unknown) {
+      console.error('Avatar upload failed', err);
+      setAvatarError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setAvatarUploading(false);
+      setTimeout(() => setAvatarProgress(null), 800);
+    }
+  }
   async function saveBasic() {
     if (!profile) return;
     setSavingBasic(true);
@@ -281,13 +305,36 @@ export default function ProfilePage() {
           {/* Avatar */}
           <div className="relative flex-shrink-0">
             <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-cyan-400 to-blue-600
-              flex items-center justify-center text-white text-2xl font-bold">
-              {basic.name.split(' ').map(n => n[0]).join('')}
+              flex items-center justify-center text-white text-2xl font-bold overflow-hidden">
+              {profile?.photoURL ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.photoURL} alt={basic.name} className="h-full w-full object-cover" />
+              ) : (
+                <span>{basic.name.split(' ').map(n => n[0]).join('')}</span>
+              )}
             </div>
-            <button className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-slate-800 border border-white/10
-              flex items-center justify-center text-slate-400 hover:text-white transition-colors">
-              <Camera className="h-3.5 w-3.5" />
-            </button>
+            <input
+              type="file"
+              accept="image/*"
+              id="avatar-upload"
+              onChange={e => { if (e.target.files?.[0]) void handleFile(e.target.files[0]); }}
+              className="hidden"
+            />
+            <label htmlFor="avatar-upload"
+              className="absolute -bottom-1 -right-1 h-7 w-7 rounded-full bg-popover/80 border border-border/70
+              flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
+              {avatarUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            </label>
+            {avatarProgress !== null && (
+              <div className="absolute -bottom-8 left-0 w-full">
+                <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
+                  <div style={{ width: `${avatarProgress}%` }} className="h-full bg-cyan-400 transition-all" />
+                </div>
+              </div>
+            )}
+            {avatarError && (
+              <p className="text-xs text-rose-400 mt-2">{avatarError}</p>
+            )}
           </div>
 
           {/* Info */}
@@ -330,12 +377,42 @@ export default function ProfilePage() {
                   <p className="text-sm text-cyan-400 mt-0.5">{basic.headline}</p>
                   <p className="text-xs text-slate-500 mt-1">{basic.college} · {basic.year} · {basic.branch} · {basic.location}</p>
                 </div>
-                <button onClick={() => setEditingBasic(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5
-                    text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all flex-shrink-0">
-                  <Edit2 className="h-3 w-3" /> Edit
-                </button>
+                <div className="flex-shrink-0 flex gap-2">
+                  <button onClick={() => setEditingBasic(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 border border-white/5
+                      text-xs text-slate-400 hover:text-white hover:bg-white/10 transition-all">
+                    <Edit2 className="h-3 w-3" /> Edit
+                  </button>
+                  <button onClick={async () => {
+                      if (!profile) return;
+                      if (!confirm('Remove skills, education, experience, certificates and achievements from your profile? This cannot be undone.')) return;
+                      setClearingSections(true);
+                      setClearError('');
+                      try {
+                        await updateUser(profile.uid, {
+                          skills: [],
+                          education: [],
+                          experience: [],
+                          certificates: [],
+                          achievements: [],
+                        });
+                        await refreshProfile();
+                        setClearMessage('Profile sections cleared');
+                        setTimeout(() => setClearMessage(''), 3000);
+                      } catch (err: unknown) {
+                        setClearError(err instanceof Error ? err.message : String(err));
+                      } finally {
+                        setClearingSections(false);
+                      }
+                    }}
+                    disabled={clearingSections}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl border border-white/10 text-xs text-rose-400 hover:bg-rose-500/10 transition-all">
+                    {clearingSections ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Clear Sections
+                  </button>
+                </div>
               </div>
+              {clearMessage && <p className="text-xs text-emerald-400 mt-2">{clearMessage}</p>}
+              {clearError && <p className="text-xs text-rose-400 mt-2">{clearError}</p>}
               <p className="text-sm text-slate-400 mt-3 leading-relaxed">{basic.bio}</p>
               <div className="flex flex-wrap gap-3 mt-3 text-xs text-slate-500">
                 {basic.github && <a href={`https://${basic.github}`} className="hover:text-cyan-400 transition-colors">{basic.github}</a>}
