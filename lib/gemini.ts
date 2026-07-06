@@ -4,22 +4,22 @@
 // SDK package is required. Called exclusively from app/api/* route handlers.
 
 const BASE_URL =
-'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
 
 function getKey(): string {
   const k = process.env.GEMINI_API_KEY;
 
-  console.log("KEY PREFIX:", k?.slice(0, 15));
+  console.log('KEY PREFIX:', k?.slice(0, 15));
 
   if (!k) {
-    throw new Error("GEMINI_API_KEY missing");
+    throw new Error('GEMINI_API_KEY missing');
   }
 
   return k;
 }
 
 // Gemini content part
-export interface GeminiPart    { text: string }
+export interface GeminiPart { text: string }
 export interface GeminiContent { role: 'user' | 'model'; parts: GeminiPart[] }
 
 interface GeminiResponse {
@@ -43,21 +43,34 @@ export async function geminiChat(
   const body = {
     system_instruction: { parts: [{ text: system }] },
     contents: [...history, { role: 'user', parts: [{ text: userMsg }] }],
-    generationConfig: {
-      temperature:     opts.temperature ?? 0.7,
-      maxOutputTokens: opts.maxTokens   ?? 1024,
-      topK:  40,
-      topP:  0.95,
-    },
+   generationConfig: {
+  temperature: opts.temperature ?? 0.7,
+  maxOutputTokens: opts.maxTokens ?? 2048,
+  topK: 40,
+  topP: 0.95,
+  responseMimeType: "application/json",
+},
   };
 
   const res = await fetch(`${BASE_URL}?key=${getKey()}`, {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
+    body: JSON.stringify(body),
   });
 
   const data: GeminiResponse = await res.json();
+  const candidate = data.candidates?.[0];
+
+if (!candidate) {
+  throw new Error("Gemini returned no candidates");
+}
+
+if (candidate.finishReason !== "STOP") {
+  console.error("Finish reason:", candidate.finishReason);
+  throw new Error(
+    `Gemini response was truncated (finishReason=${candidate.finishReason})`
+  );
+}
 
   if (!res.ok || data.error) {
     throw new Error(
@@ -84,11 +97,13 @@ export async function geminiJSON<T>(
     ' No markdown fences, no explanation text before or after the JSON object.';
 
   const raw = await geminiChat(jsonSystem, [], userMsg, {
-    temperature: opts.temperature ?? 0.3, // lower temp for structured output
-    maxTokens:   opts.maxTokens   ?? 2048,
+    temperature: opts.temperature ?? 0.3,
+    maxTokens: opts.maxTokens ?? 2048,
   });
+  console.log("========== GEMINI RAW RESPONSE ==========");
+console.log(raw);
+console.log("========================================="); 
 
-  // Strip any accidental ```json ... ``` wrappers
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, '')
     .replace(/\s*```\s*$/, '')
@@ -97,6 +112,80 @@ export async function geminiJSON<T>(
   try {
     return JSON.parse(cleaned) as T;
   } catch {
-    throw new Error(`Gemini returned invalid JSON: ${cleaned.slice(0, 200)}`);
+    const jsonFragment = extractJsonFragment(cleaned);
+    const candidates = [cleaned, jsonFragment].filter(Boolean) as string[];
+
+    for (const candidate of candidates) {
+      const attempted = completeJson(candidate);
+      const escaped = sanitizeJsonStrings(attempted);
+      try {
+        return JSON.parse(escaped) as T;
+      } catch {
+        // try the next candidate
+      }
+    }
+
+    throw new Error(`Gemini returned invalid JSON: ${cleaned.slice(0, 300)}`);
   }
+}
+
+function sanitizeJsonStrings(text: string): string {
+  let inString = false;
+  let escaped = false;
+  let result = '';
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+
+    if (escaped) {
+      result += char;
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      result += char;
+      escaped = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+
+    if (inString) {
+      if (char === '\n') {
+        result += '\\n';
+        continue;
+      }
+      if (char === '\r') {
+        result += '\\r';
+        continue;
+      }
+      if (char === '\t') {
+        result += '\\t';
+        continue;
+      }
+    }
+
+    result += char;
+  }
+
+  return result;
+}
+
+function completeJson(text: string): string {
+  const open = (text.match(/\{/g) || []).length;
+  const close = (text.match(/\}/g) || []).length;
+  if (open <= close) return text;
+  return text + '}'.repeat(open - close);
+}
+
+function extractJsonFragment(text: string): string | null {
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first === -1 || last === -1 || last <= first) return null;
+  return text.slice(first, last + 1);
 }
