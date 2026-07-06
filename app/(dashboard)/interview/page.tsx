@@ -10,6 +10,8 @@ import {
 import GlassCard from '@/components/shared/GlassCard';
 import PageHeader from '@/components/shared/PageHeader';
 import StatCard from '@/components/shared/StatCard';
+import { useAuth } from '@/hooks/useAuth';
+import { useInterview } from '@/hooks/useInterview';
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -44,12 +46,12 @@ interface Question {
 
 interface FeedbackResult {
   score: number;
-  clarity: number;
-  depth: number;
-  relevance: number;
+  verdict: 'Excellent' | 'Good' | 'Average' | 'Poor';
+  feedback: string;
   strengths: string[];
   improvements: string[];
-  modelAnswer: string;
+  missingPoints: string[];
+  correctAnswer: string;
 }
 
 const CATEGORIES: Category[] = [
@@ -70,22 +72,27 @@ const QUESTIONS: Record<CategoryId, Question[]> = {
   system: [
     { id:'s1', difficulty:'Hard',   text:'Design a URL shortener like bit.ly that handles 100 million URLs and 10 billion reads per day. Walk through your architecture choices.', hint:'Think about: hashing strategy, database sharding, CDN, and caching.', tags:['Scale','Database','Caching','CDN'], sampleAnswer:'Base62 encoding for short codes, write to primary DB + read from replicas, Redis cache for hot URLs, CDN at edge, horizontal sharding by short code hash.', },
     { id:'s2', difficulty:'Medium', text:'How would you design a notification system that delivers push, email, and SMS notifications at scale?', hint:'Consider message queues, fan-out patterns, and idempotency.', tags:['Messaging','Queue','Fan-out'], sampleAnswer:'Kafka for message ingestion, worker pools per channel (email/SMS/push), retry with exponential backoff, deduplication via message IDs.', },
+    { id:'s3', difficulty:'Hard',   text:'Describe a scalable analytics pipeline for storing and querying user events in real time. What components would you use?', hint:'Consider ingestion, storage, stream processing, and querying layers.', tags:['Analytics','Streaming','Data'], sampleAnswer:'Use a pub/sub or Kafka ingestion layer, stream processing with Flink or Kafka Streams, OLAP storage in BigQuery/ClickHouse, and a separate serving tier for dashboards and alerting.', },
   ],
   behavioral: [
     { id:'b1', difficulty:'Medium', text:'Tell me about a time you had a conflict with a team member. How did you resolve it?', hint:'Use STAR: Situation, Task, Action, Result.', tags:['Conflict','Teamwork','Communication'], sampleAnswer:'Describe a specific disagreement, your empathetic approach to understand their perspective, the compromise reached, and the positive outcome for the project.', },
     { id:'b2', difficulty:'Easy',   text:'Describe a project you are most proud of and explain your specific contribution.', hint:'Quantify impact wherever possible.', tags:['Achievement','Leadership'], sampleAnswer:'Focus on your ownership, technical decisions made, team coordination, and measurable results (users, performance gains, revenue impact).', },
+    { id:'b3', difficulty:'Medium', text:'Tell me about a time you missed a deadline. How did you handle it and what did you learn?', hint:'Be honest and show accountability, improvement, and communication.', tags:['Accountability','Learning'], sampleAnswer:'Explain the context, the corrective actions you took, how you communicated with stakeholders, and the concrete process improvements you implemented.', },
   ],
   ml: [
     { id:'m1', difficulty:'Medium', text:'Explain the bias-variance tradeoff. How do you detect and address overfitting in a deep neural network?', hint:'Think about regularization techniques, early stopping, and data augmentation.', tags:['Deep Learning','Regularization'], sampleAnswer:'Overfitting: high train accuracy, low val accuracy. Fix with dropout, L2 regularization, early stopping, data augmentation, reducing model capacity.', },
     { id:'m2', difficulty:'Hard',   text:'You have a dataset with 95% negative labels and 5% positive. How do you train and evaluate a classifier?', hint:'Consider class imbalance techniques and the right metrics.', tags:['Class Imbalance','Metrics'], sampleAnswer:'Oversample minority (SMOTE), undersample majority, use class weights, evaluate with F1, AUC-ROC, Precision-Recall curve — not accuracy.', },
+    { id:'m3', difficulty:'Medium', text:'How do you choose between precision and recall for a classification problem? Give an example where one is more important than the other.', hint:'Tie your answer to business impact and error cost.', tags:['Metrics','Trade-offs'], sampleAnswer:'Choose precision for fraud detection where false positives are costly, recall for cancer screening where missing a case is worse. Explain the cost of each error and how the model objective changes.', },
   ],
   frontend: [
     { id:'f1', difficulty:'Medium', text:'Explain React\'s reconciliation algorithm. How does the virtual DOM diffing work and what are its limitations?', hint:'Think about keys, component types, and the tree-comparison algorithm.', tags:['React','Virtual DOM','Performance'], sampleAnswer:'React compares trees level-by-level using heuristics. Keys help identify moved items. O(n) complexity. Limitation: assumes same component type at same position.', },
     { id:'f2', difficulty:'Hard',   text:'How would you optimize a React application that renders a list of 10,000 items?', hint:'Consider virtualization, memoization, and code splitting.', tags:['Performance','Virtualization'], sampleAnswer:'react-window for virtualization, React.memo for components, useMemo/useCallback for stable references, pagination or infinite scroll, lazy loading.', },
+    { id:'f3', difficulty:'Medium', text:'Describe how you would make a web form accessible and performant for mobile users.', hint:'Consider semantic HTML, keyboard navigation, and responsive input handling.', tags:['Accessibility','Performance'], sampleAnswer:'Use native input elements with labels, aria attributes for screen readers, client-side validation, efficient event handling, and responsive layout with proper spacing and touch targets.', },
   ],
   hr: [
     { id:'h1', difficulty:'Easy', text:'Why do you want to work at this company specifically? What excites you about this role?', hint:'Research the company\'s mission, recent products, and engineering culture.', tags:['Culture Fit','Motivation'], sampleAnswer:'Connect company values to your personal goals. Reference specific products, engineering blog posts, or company initiatives that genuinely excite you.', },
     { id:'h2', difficulty:'Medium', text:'Where do you see yourself in 5 years? How does this role fit into that vision?', hint:'Be ambitious but realistic. Show self-awareness and growth mindset.', tags:['Career Goals','Vision'], sampleAnswer:'Frame a growth arc (IC → Tech Lead → Architect or PM). Tie it to the company\'s scale — "as the company grows, I want to grow with the problems it\'s solving."', },
+    { id:'h3', difficulty:'Medium', text:'What is your biggest professional weakness and how are you working to improve it?', hint:'Be genuine, specific, and show progress.', tags:['Self-awareness','Growth'], sampleAnswer:'Name a real area, explain the concrete actions you are taking to improve, and mention measurable progress or feedback you received.', },
   ],
 };
 
@@ -131,25 +138,6 @@ function useTimer(running: boolean) {
 /* ─────────────────────────────────────────────────────────────
    MOCK FEEDBACK GENERATOR
 ───────────────────────────────────────────────────────────── */
-function generateFeedback(answer: string, question: Question): FeedbackResult {
-  const len = answer.trim().split(/\s+/).length;
-  const base = Math.min(95, Math.max(45, 55 + len * 0.4));
-  return {
-    score:       Math.round(base),
-    clarity:     Math.round(base - 5 + Math.random() * 10),
-    depth:       Math.round(base - 8 + Math.random() * 10),
-    relevance:   Math.round(base + 2 + Math.random() * 8),
-    strengths: [
-      len > 30 ? 'Good depth — you elaborated on the approach' : 'Concise answer',
-      'Addressed the core question',
-    ],
-    improvements: [
-      len < 50 ? 'Add more detail — mention time and space complexity' : 'Good length',
-      'Consider discussing edge cases (empty input, single element)',
-    ],
-    modelAnswer: question.sampleAnswer,
-  };
-}
 
 /* ─────────────────────────────────────────────────────────────
    PAGE
@@ -165,6 +153,8 @@ export default function InterviewPage() {
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null);
   const [sessionResults, setSessionResults] = useState<FeedbackResult[]>([]);
   const { display: timerDisplay, reset: resetTimer, elapsed } = useTimer(view === 'session' && !submitted);
+  const { firebaseUser } = useAuth();
+  const { submitInterviewAnswer } = useInterview();
 
   const questions = selectedCategory ? QUESTIONS[selectedCategory.id] : [];
   const currentQ = questions[qIndex];
@@ -181,14 +171,27 @@ export default function InterviewPage() {
   }
 
   async function submitAnswer() {
-    if (!answer.trim() || !currentQ) return;
+    if (!answer.trim() || !currentQ || !firebaseUser) return;
     setLoading(true);
-    await new Promise(r => setTimeout(r, 1400));
-    const fb = generateFeedback(answer, currentQ);
-    setFeedback(fb);
-    setSessionResults(p => [...p, fb]);
-    setSubmitted(true);
-    setLoading(false);
+    setFeedback(null);
+
+    try {
+      const evaluation = await submitInterviewAnswer({
+        uid: firebaseUser.uid,
+        category: selectedCategory!.id,
+        difficulty: currentQ.difficulty,
+        question: currentQ.text,
+        userAnswer: answer.trim(),
+      });
+
+      setFeedback(evaluation as FeedbackResult);
+      setSessionResults(p => [...p, evaluation as FeedbackResult]);
+      setSubmitted(true);
+    } catch (err) {
+      console.error('[InterviewPage] submitAnswer', err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function nextQuestion() {
@@ -380,7 +383,7 @@ export default function InterviewPage() {
               </div>
               <button
                 onClick={submitAnswer}
-                disabled={!answer.trim() || loading}
+                disabled={!answer.trim() || loading || !firebaseUser}
                 className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600
                   text-sm font-semibold text-white disabled:opacity-40 transition-all
                   hover:from-cyan-400 hover:to-blue-500 shadow-lg shadow-cyan-500/10">
@@ -394,78 +397,62 @@ export default function InterviewPage() {
         ) : feedback ? (
           /* Feedback panel */
           <div className="space-y-4">
-            {/* Score ring */}
-            <div className="flex items-center gap-6 p-4 rounded-xl bg-white/5">
-              <div className="relative h-20 w-20 flex-shrink-0">
-                <svg className="h-full w-full -rotate-90" viewBox="0 0 80 80">
-                  <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
-                  <circle cx="40" cy="40" r="32" fill="none"
-                    stroke={feedback.score >= 80 ? '#10b981' : feedback.score >= 60 ? '#f59e0b' : '#ef4444'}
-                    strokeWidth="8" strokeLinecap="round"
-                    strokeDasharray={`${(feedback.score / 100) * 201} 201`} />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xl font-bold text-white">{feedback.score}</span>
-                  <span className="text-xs text-slate-500">/100</span>
+            <div className="rounded-3xl bg-slate-950/70 border border-white/5 p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Accuracy</p>
+                  <p className="text-4xl font-bold text-white">{feedback.score}%</p>
+                </div>
+                <div className="rounded-3xl bg-slate-900/80 px-4 py-3 border border-slate-700">
+                  <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Verdict</p>
+                  <p className={`mt-1 text-lg font-semibold ${feedback.verdict === 'Excellent' ? 'text-emerald-400' : feedback.verdict === 'Good' ? 'text-amber-400' : feedback.verdict === 'Average' ? 'text-sky-400' : 'text-rose-400'}`}>
+                    {feedback.verdict}
+                  </p>
                 </div>
               </div>
-              <div className="flex-1 space-y-1.5">
-                {[['Clarity', feedback.clarity], ['Depth', feedback.depth], ['Relevance', feedback.relevance]].map(([label, val]) => (
-                  <div key={label as string}>
-                    <div className="flex justify-between text-xs mb-0.5">
-                      <span className="text-slate-500">{label}</span>
-                      <span className="text-slate-300 font-medium">{val}%</span>
-                    </div>
-                    <div className="h-1 rounded-full bg-white/10 overflow-hidden">
-                      <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
-                        style={{ width: `${val}%` }} />
-                    </div>
-                  </div>
-                ))}
+              <p className="mt-4 text-sm leading-relaxed text-slate-300">{feedback.feedback}</p>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="rounded-3xl bg-slate-950/70 border border-white/5 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 mb-3">Strengths</p>
+                <ul className="space-y-2">
+                  {feedback.strengths.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="mt-0.5 text-emerald-400">✓</span> {s}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-3xl bg-slate-950/70 border border-white/5 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 mb-3">Areas to Improve</p>
+                <ul className="space-y-2">
+                  {feedback.improvements.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="mt-0.5 text-amber-400">•</span> {s}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
 
-            {/* Strengths */}
-            <div>
-              <p className="text-xs font-semibold text-emerald-400 mb-2 flex items-center gap-1.5">
-                <ThumbsUp className="h-3.5 w-3.5" /> Strengths
-              </p>
-              <ul className="space-y-1">
-                {feedback.strengths.map((s, i) => (
-                  <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
-                    <CheckCircle className="h-3.5 w-3.5 text-emerald-400 mt-0.5 flex-shrink-0" /> {s}
+            <div className="rounded-3xl bg-slate-950/70 border border-white/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 mb-3">Missing Points</p>
+              <ul className="space-y-2">
+                {feedback.missingPoints.map((s, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                    <span className="mt-0.5 text-rose-400">•</span> {s}
                   </li>
                 ))}
               </ul>
             </div>
 
-            {/* Improvements */}
-            <div>
-              <p className="text-xs font-semibold text-amber-400 mb-2 flex items-center gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" /> Improve
-              </p>
-              <ul className="space-y-1">
-                {feedback.improvements.map((s, i) => (
-                  <li key={i} className="text-sm text-slate-300 flex items-start gap-2">
-                    <span className="mt-0.5 text-amber-400 flex-shrink-0">→</span> {s}
-                  </li>
-                ))}
-              </ul>
+            <div className="rounded-3xl bg-slate-950/70 border border-white/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 mb-3">Recommended Answer</p>
+              <p className="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">{feedback.correctAnswer}</p>
             </div>
 
-            {/* Model answer */}
-            <details className="group">
-              <summary className="text-xs text-cyan-400 cursor-pointer list-none flex items-center gap-1.5 select-none">
-                <Zap className="h-3 w-3" />
-                <span className="group-open:hidden">Show model answer</span>
-                <span className="hidden group-open:inline">Hide model answer</span>
-              </summary>
-              <div className="mt-2 p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/10">
-                <p className="text-sm text-slate-300 leading-relaxed">{feedback.modelAnswer}</p>
-              </div>
-            </details>
-
-            {/* Nav */}
             <div className="flex justify-between pt-2">
               <button onClick={() => { setSubmitted(false); setAnswer(''); setFeedback(null); }}
                 className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors">

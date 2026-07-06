@@ -198,6 +198,18 @@ export interface AnalyticsData {
   skillScores: { skill: string; score: number }[];
   applications: ApplicationRecord[];
   interviewPerf: InterviewPerf[];
+  interviewStats?: {
+    averageScore: number;
+    highestScore: number;
+    categoryWiseScore: Record<string, number>;
+    totalQuestionsAnswered: number;
+    improvementTrend: InterviewTrendPoint[];
+  };
   insights: AiInsight[];
   updatedAt: string;
+}
+
+export interface InterviewTrendPoint {
+  date: string;
+  score: number;
 }
