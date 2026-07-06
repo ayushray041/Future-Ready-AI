@@ -1,19 +1,23 @@
-import { fsGet, fsMerge } from './firestore.service';
+import {
+  fsGetAdmin,
+  fsMergeAdmin,
+} from './firestore-admin.service';
+
 import type { AnalyticsData } from '@/types';
 
 const COL = 'analytics';
 
-export async function getAnalytics(
+export async function getAnalyticsAdmin(
   uid: string,
 ): Promise<AnalyticsData | null> {
-  return fsGet<AnalyticsData>(COL, uid);
+  return fsGetAdmin<AnalyticsData>(COL, uid);
 }
 
-export async function upsertAnalytics(
+export async function upsertAnalyticsAdmin(
   uid: string,
   data: Partial<Omit<AnalyticsData, 'uid'>>,
 ): Promise<void> {
-  await fsMerge(COL, uid, {
+  await fsMergeAdmin(COL, uid, {
     uid,
     ...data,
     updatedAt: new Date().toISOString(),

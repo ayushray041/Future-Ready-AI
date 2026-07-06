@@ -1,6 +1,9 @@
 import { geminiJSON } from '@/lib/gemini';
 import { fsAddAdmin } from '@/services/firestore-admin.service';
-import { getAnalytics, upsertAnalytics } from '@/services/analytics.service';
+import {
+  getAnalyticsAdmin,
+  upsertAnalyticsAdmin,
+} from '@/services/analytics-admin.service';
 import type {
   InterviewAnalyticsStats,
   InterviewCategoryId,
@@ -105,7 +108,7 @@ export async function updateInterviewAnalytics(
   category: InterviewCategoryId,
   score: number,
 ): Promise<InterviewAnalyticsStats> {
-  const existing = await getAnalytics(uid);
+  const existing = await getAnalyticsAdmin(uid);
   const previous = existing?.interviewStats;
 
   const totalQuestionsAnswered = (previous?.totalQuestionsAnswered ?? 0) + 1;
@@ -113,17 +116,40 @@ export async function updateInterviewAnalytics(
   const averageScore = Math.round((previousSum + score) / totalQuestionsAnswered);
   const highestScore = Math.max(previous?.highestScore ?? 0, score);
 
-  const categoryCounts = {
-    ...(previous?.categoryCounts ?? {}),
-    [category]: (previous?.categoryCounts?.[category] ?? 0) + 1,
-  };
-  const categorySums = {
-    ...(previous?.categorySums ?? {}),
-    [category]: (previous?.categorySums?.[category] ?? 0) + score,
-  };
-  const categoryWiseScore = Object.fromEntries(
-    Object.entries(categorySums).map(([key, sum]) => [key, Math.round(sum / (categoryCounts[key] || 1))]),
-  ) as Record<string, number>;
+  const categoryCounts: Record<InterviewCategoryId, number> = {
+  dsa: previous?.categoryCounts?.dsa ?? 0,
+  system: previous?.categoryCounts?.system ?? 0,
+  behavioral: previous?.categoryCounts?.behavioral ?? 0,
+  ml: previous?.categoryCounts?.ml ?? 0,
+  frontend: previous?.categoryCounts?.frontend ?? 0,
+  hr: previous?.categoryCounts?.hr ?? 0,
+};
+
+categoryCounts[category]++;
+
+const categorySums: Record<InterviewCategoryId, number> = {
+  dsa: previous?.categorySums?.dsa ?? 0,
+  system: previous?.categorySums?.system ?? 0,
+  behavioral: previous?.categorySums?.behavioral ?? 0,
+  ml: previous?.categorySums?.ml ?? 0,
+  frontend: previous?.categorySums?.frontend ?? 0,
+  hr: previous?.categorySums?.hr ?? 0,
+};
+
+categorySums[category] += score;
+
+const categoryWiseScore: Record<InterviewCategoryId, number> = {
+  dsa: Math.round(categorySums.dsa / Math.max(categoryCounts.dsa, 1)),
+  system: Math.round(categorySums.system / Math.max(categoryCounts.system, 1)),
+  behavioral: Math.round(
+    categorySums.behavioral / Math.max(categoryCounts.behavioral, 1)
+  ),
+  ml: Math.round(categorySums.ml / Math.max(categoryCounts.ml, 1)),
+  frontend: Math.round(
+    categorySums.frontend / Math.max(categoryCounts.frontend, 1)
+  ),
+  hr: Math.round(categorySums.hr / Math.max(categoryCounts.hr, 1)),
+};
 
   const improvementTrend = [...(previous?.improvementTrend ?? [])];
   const newPoint = { date: new Date().toISOString().slice(0, 10), score: averageScore };
@@ -144,6 +170,8 @@ export async function updateInterviewAnalytics(
     categorySums,
   };
 
-  await upsertAnalytics(uid, { interviewStats: nextStats });
-  return nextStats;
+  await upsertAnalyticsAdmin(uid, {
+  interviewStats: nextStats,
+});
+return nextStats;
 }

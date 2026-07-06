@@ -6,7 +6,7 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Upload, FileText, CheckCircle, AlertCircle, XCircle,
-  Loader2, Zap, Download, Clock, RotateCcw,
+  Loader2, Zap, Download, Clock, RotateCcw, Trash2,
 } from 'lucide-react';
 import GlassCard      from '@/components/shared/GlassCard';
 import PageHeader     from '@/components/shared/PageHeader';
@@ -90,11 +90,13 @@ export default function ResumePage() {
     error,
     analyzeFile,
     loadHistory,
+    clearHistory,
     selectItem,
   } = useResume();
   const [dragOver,    setDragOver]    = useState(false);
   const [activeId,    setActiveId]    = useState<string | null>(null);
   const [targetRole,  setTargetRole]  = useState('AI Engineer');
+  const [clearing, setClearing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const uid       = firebaseUser?.uid ?? '';
@@ -140,6 +142,18 @@ export default function ResumePage() {
       return;
     }
     await analyzeFile(file, uid, targetRole);
+  }
+
+  async function handleClearHistory() {
+    if (!uid || history.length === 0) return;
+    if (!window.confirm('Remove all saved resume analyses from history?')) return;
+
+    setClearing(true);
+    try {
+      await clearHistory(uid);
+    } finally {
+      setClearing(false);
+    }
   }
 
   function exportReport() {
@@ -277,7 +291,17 @@ export default function ResumePage() {
           {/* History */}
           {history.length > 0 && (
             <GlassCard>
-              <h3 className="text-sm font-semibold text-slate-300 mb-3">Resume History</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-slate-300">Resume History</h3>
+                <button
+                  onClick={handleClearHistory}
+                  disabled={clearing || history.length === 0}
+                  className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-rose-400 transition-colors disabled:opacity-50"
+                >
+                  {clearing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  Clear all
+                </button>
+              </div>
               <div className="space-y-2">
                 {history.map(h => (
                   <HistoryItem

@@ -191,6 +191,8 @@ export interface AiInsight {
   body: string;
 }
 
+import type { InterviewAnalyticsStats } from './interview';
+
 export interface AnalyticsData {
   uid: string;
   careerScore: number;
@@ -198,13 +200,9 @@ export interface AnalyticsData {
   skillScores: { skill: string; score: number }[];
   applications: ApplicationRecord[];
   interviewPerf: InterviewPerf[];
-  interviewStats?: {
-    averageScore: number;
-    highestScore: number;
-    categoryWiseScore: Record<string, number>;
-    totalQuestionsAnswered: number;
-    improvementTrend: InterviewTrendPoint[];
-  };
+
+  interviewStats?: InterviewAnalyticsStats;
+
   insights: AiInsight[];
   updatedAt: string;
 }
