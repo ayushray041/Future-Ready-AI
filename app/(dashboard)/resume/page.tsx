@@ -13,7 +13,6 @@ import PageHeader     from '@/components/shared/PageHeader';
 import { useResume }      from '@/hooks/useResume';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { ResumeAnalysis } from '@/types';
-import { error } from 'console';
 
 const TARGET_ROLES = [
   'AI Engineer', 'Software Engineer', 'Data Scientist', 'ML Engineer',
@@ -143,6 +142,39 @@ export default function ResumePage() {
     await analyzeFile(file, uid, targetRole);
   }
 
+  function exportReport() {
+    if (!displayed) return;
+
+    const lines = [
+      `Resume Report - ${displayed.fileName}`,
+      `Analyzed At: ${new Date(displayed.analyzedAt).toLocaleString()}`,
+      `Overall Score: ${displayed.overallScore}/100`,
+      `ATS Score: ${displayed.atsScore}/100`,
+      '',
+      'Section Analysis:',
+      ...displayed.sections.map(section => `- ${section.label}: ${section.score}/100 (${section.status}) - ${section.feedback}`),
+      '',
+      'Skills Found:',
+      ...displayed.extractedSkills.map(skill => `- ${skill}`),
+      '',
+      'Missing Skills:',
+      ...displayed.missingSkills.map(skill => `- ${skill}`),
+      '',
+      'Improvement Suggestions:',
+      ...displayed.suggestions.map((suggestion, index) => `${index + 1}. ${suggestion}`),
+    ];
+
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${displayed.fileName.replace(/\.pdf$/i, '') || 'resume-report'}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -150,8 +182,11 @@ export default function ResumePage() {
         description="AI-powered ATS scoring, skill extraction, and personalised improvement suggestions."
         badge="Powered by Gemini"
         action={displayed ? (
-          <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5
-            text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-all">
+          <button
+            onClick={exportReport}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/5
+              text-sm font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-all"
+          >
             <Download className="h-4 w-4" /> Export Report
           </button>
         ) : undefined}
