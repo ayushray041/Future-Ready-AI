@@ -51,20 +51,30 @@ export async function POST(req: NextRequest) {
     const evaluation = await evaluateInterviewAnswer(request);
 
     const record: InterviewSessionRecord = {
-      uid,
-      category: request.category,
-      difficulty: request.difficulty,
-      question,
-      userAnswer,
-      score: evaluation.score,
-      verdict: evaluation.verdict,
-      feedback: evaluation.feedback,
-      strengths: evaluation.strengths,
-      improvements: evaluation.improvements,
-      missingPoints: evaluation.missingPoints,
-      correctAnswer: evaluation.correctAnswer,
-      createdAt: new Date().toISOString(),
-    };
+  uid,
+  category: request.category,
+  difficulty: request.difficulty,
+
+  question,
+  userAnswer,
+
+  score: evaluation.score,
+  verdict: evaluation.verdict,
+
+  feedback: evaluation.feedback,
+
+  strengths: evaluation.strengths,
+  improvements: evaluation.improvements,
+  missingPoints: evaluation.missingPoints,
+
+  correctAnswer: evaluation.correctAnswer,
+
+  // NEW FIELDS
+  skillsAssessed: evaluation.skillsAssessed,
+  followUpQuestion: evaluation.followUpQuestion,
+
+  createdAt: new Date().toISOString(),
+};
 
     await persistInterviewEvaluation(record);
     await updateInterviewAnalytics(
