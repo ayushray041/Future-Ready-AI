@@ -31,6 +31,49 @@ const BAR_COLOR = {
 };
 const SCORE_TEXT = { good: 'text-emerald-400', ok: 'text-amber-400', bad: 'text-rose-400' };
 
+const ROLE_SKILL_KEYWORDS: Record<string, string[]> = {
+  'AI Engineer': ['python', 'pytorch', 'tensorflow', 'machine learning', 'llm', 'nlp', 'langchain', 'aws', 'docker'],
+  'Software Engineer': ['javascript', 'typescript', 'react', 'node.js', 'python', 'sql', 'api', 'docker', 'aws'],
+  'Data Scientist': ['python', 'sql', 'pandas', 'numpy', 'machine learning', 'statistics', 'tableau', 'spark'],
+  'ML Engineer': ['python', 'pytorch', 'tensorflow', 'machine learning', 'mlops', 'deployment', 'aws', 'docker'],
+  'Full Stack Developer': ['javascript', 'typescript', 'react', 'node.js', 'sql', 'api', 'docker'],
+  'Cloud Engineer': ['aws', 'azure', 'gcp', 'terraform', 'kubernetes', 'docker', 'linux', 'ci/cd'],
+  'DevOps Engineer': ['docker', 'kubernetes', 'linux', 'aws', 'ci/cd', 'terraform', 'jenkins'],
+  'Product Manager': ['product strategy', 'roadmap', 'analytics', 'stakeholder management', 'agile'],
+};
+
+const COMMON_SKILL_TERMS = [
+  'python', 'javascript', 'typescript', 'react', 'next.js', 'node.js', 'java', 'c++', 'c#', 'sql',
+  'postgres', 'mongodb', 'mysql', 'redis', 'aws', 'azure', 'gcp', 'docker', 'kubernetes', 'git',
+  'linux', 'tensorflow', 'pytorch', 'pandas', 'numpy', 'tableau', 'spark', 'llm', 'nlp', 'langchain',
+  'fastapi', 'flask', 'django', 'tailwind', 'graphql', 'firebase', 'terraform', 'ci/cd', 'rest api', 'api', 'machine learning'
+];
+
+function normalizeSkillText(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9+/.#\-\s]/g, ' ');
+}
+
+function matchSkillTerm(normalizedText: string, skill: string) {
+  const variants = [skill, skill.replace(/\./g, ''), skill.replace(/\s+/g, ''), skill.replace(/\s+/g, '.')];
+  return variants.some(variant => normalizedText.includes(variant.toLowerCase()));
+}
+
+function extractSkillsFromText(text: string, targetRole: string) {
+  const normalized = normalizeSkillText(text);
+  const roleKeywords = ROLE_SKILL_KEYWORDS[targetRole] ?? ROLE_SKILL_KEYWORDS['Software Engineer'];
+  const found = new Set<string>();
+
+  roleKeywords.forEach(keyword => {
+    if (matchSkillTerm(normalized, keyword)) found.add(keyword);
+  });
+
+  COMMON_SKILL_TERMS.forEach(skill => {
+    if (matchSkillTerm(normalized, skill)) found.add(skill);
+  });
+
+  return Array.from(found).slice(0, 8).map(skill => skill.charAt(0).toUpperCase() + skill.slice(1));
+}
+
 function ScoreRing({ score }: { score: number }) {
   const color = score >= 80 ? '#10b981' : score >= 65 ? '#f59e0b' : '#ef4444';
   const circ  = 2 * Math.PI * 50;
@@ -100,37 +143,48 @@ export default function ResumePage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const uid       = firebaseUser?.uid ?? '';
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center py-32">
-        <Loader2 className="h-8 w-8 text-cyan-400 animate-spin" />
-      </div>
-    );
-  }
 
   const displayed = activeId
     ? (history.find(h => h.id === activeId) ?? analysis)
     : analysis;
+
+  const derivedSkills = displayed?.rawText
+    ? extractSkillsFromText(displayed.rawText, targetRole)
+    : [];
+  const derivedMissingSkills = displayed?.rawText
+    ? (ROLE_SKILL_KEYWORDS[targetRole] ?? ROLE_SKILL_KEYWORDS['Software Engineer'])
+        .filter(keyword => !normalizeSkillText(displayed.rawText).includes(keyword.toLowerCase()))
+        .slice(0, 5)
+        .map(skill => skill.charAt(0).toUpperCase() + skill.slice(1))
+    : [];
+  const skillsFound = (displayed?.extractedSkills?.length ? displayed.extractedSkills : derivedSkills)
+    .map(skill => skill.trim())
+    .filter(Boolean);
+  const missingSkills = (displayed?.missingSkills?.length ? displayed.missingSkills : derivedMissingSkills)
+    .map(skill => skill.trim())
+    .filter(Boolean);
+  const foundSkillSet = new Set(skillsFound.map(skill => skill.toLowerCase()));
+  const filteredMissingSkills = missingSkills.filter(skill => !foundSkillSet.has(skill.toLowerCase()));
 
   useEffect(() => {
     if (uid) loadHistory(uid);
   }, [uid, loadHistory]);
 
   useEffect(() => {
-  if (analysis && activeId !== analysis.id) {
-    setActiveId(analysis.id);
-  }
-}, [analysis, activeId]);
+    if (analysis && activeId !== analysis.id) {
+      setActiveId(analysis.id);
+    }
+  }, [analysis, activeId]);
 
   // Default target role to user's target career
   useEffect(() => {
-  if (
-    profile?.targetCareer &&
-    targetRole !== profile.targetCareer
-  ) {
-    setTargetRole(profile.targetCareer);
-  }
-}, [profile?.targetCareer, targetRole]);
+    if (
+      profile?.targetCareer &&
+      targetRole !== profile.targetCareer
+    ) {
+      setTargetRole(profile.targetCareer);
+    }
+  }, [profile?.targetCareer, targetRole]);
 
   async function handleFile(file: File) {
     if (!file.name.toLowerCase().endsWith('.pdf')) {
@@ -358,7 +412,7 @@ export default function ResumePage() {
                     <CheckCircle className="h-4 w-4 text-emerald-400" /> Skills Found
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
-                    {displayed.extractedSkills.map(s => (
+                    {skillsFound.map(s => (
                       <span key={s}
                         className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium">
                         {s}
@@ -372,7 +426,7 @@ export default function ResumePage() {
                     <AlertCircle className="h-4 w-4 text-amber-400" /> Missing Skills
                   </h3>
                   <div className="flex flex-wrap gap-1.5">
-                    {displayed.missingSkills.map(s => (
+                    {filteredMissingSkills.map(s => (
                       <span key={s}
                         className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 text-xs font-medium">
                         + {s}

@@ -9,36 +9,6 @@ import { useState, useCallback } from 'react';
 import { saveAnalysis, getResumeHistory, clearResumeHistory } from '@/services/resume.service';
 import type { ResumeAnalysis } from '@/types';
 
-// ── Simple PDF → text extractor (no external dependency) ────
-// Reads the binary, picks printable ASCII chars, collapses whitespace.
-// Works well for text-based PDFs. For scanned/image PDFs, the backend
-// should use a dedicated extraction service.
-async function extractPdfText(file: File): Promise<string> {
-  const buf   = await file.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  const parts: string[] = [];
-  let chunk = '';
-
-  for (let i = 0; i < bytes.length; i++) {
-    const c = bytes[i];
-    if (c >= 32 && c <= 126) {
-      chunk += String.fromCharCode(c);
-    } else if (c === 10 || c === 13 || c === 9) {
-      chunk += ' ';
-    } else if (chunk.length > 0) {
-      parts.push(chunk);
-      chunk = '';
-    }
-  }
-  if (chunk) parts.push(chunk);
-
-  return parts
-    .join(' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim()
-    .slice(0, 3500); // Keep the prompt compact to avoid Gemini truncation
-}
-
 interface UseResumeReturn {
   analysis:    ResumeAnalysis | null;
   history:     ResumeAnalysis[];
@@ -66,25 +36,14 @@ export function useResume(): UseResumeReturn {
     setError('');
 
     try {
-      // 1. Extract text
-      const resumeText = await extractPdfText(file);
-      if (resumeText.length < 80) {
-        throw new Error(
-          'Could not extract readable text from this PDF. ' +
-          'Please ensure the file is not image-only or password-protected.',
-        );
-      }
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('targetRole', targetRole);
+      formData.append('uid', uid);
 
-      // 2. Call Gemini via API route
       const res = await fetch('/api/resume', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resumeText,
-          targetRole,
-          uid,
-          fileName: file.name,
-        }),
+        method: 'POST',
+        body: formData,
       });
 
       const data = await res.json();
