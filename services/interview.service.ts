@@ -142,6 +142,55 @@ export function mapScoreToVerdict(score: number): InterviewEvaluationResult['ver
   return 'Poor';
 }
 
+function buildFallbackEvaluation(
+  request: InterviewEvaluationRequest,
+): InterviewEvaluationResult {
+  const text = `${request.question} ${request.userAnswer}`.toLowerCase();
+  const hasStructure = /(step|first|then|finally|because|therefore|however|while|for|if)/i.test(request.userAnswer);
+  const hasSpecifics = /\b(algorithm|complexity|trade-off|scalability|latency|throughput|metrics|edge case|system design|star|situation|task|action|result)\b/i.test(request.userAnswer);
+  const hasDepth = request.userAnswer.trim().split(/\s+/).length >= 20;
+
+  const score = Math.min(
+    100,
+    Math.max(
+      20,
+      35 + (hasStructure ? 15 : 0) + (hasSpecifics ? 20 : 0) + (hasDepth ? 15 : 0) + (request.userAnswer.trim().length > 40 ? 10 : 0),
+    ),
+  );
+
+  const verdict = mapScoreToVerdict(score);
+
+  return {
+    score,
+    verdict,
+    feedback:
+      score >= 80
+        ? 'Your answer is well structured and covers meaningful points. Add a bit more specificity to make it fully interview-ready.'
+        : score >= 50
+          ? 'Your answer shows a reasonable understanding, but it would benefit from clearer structure and more concrete details.'
+          : 'Your answer is too brief or too general. Add a clearer framework, specific examples, and a stronger conclusion.',
+    strengths:
+      score >= 80
+        ? ['Clear response structure', 'Relevant domain knowledge', 'Good overall clarity']
+        : score >= 50
+          ? ['Shows relevant understanding', 'Reasonable flow', 'Uses familiar concepts']
+          : ['Attempted an answer', 'Shows some awareness', 'Understands the topic'],
+    improvements:
+      score >= 80
+        ? ['Add one concrete example', 'Mention trade-offs clearly', 'Close with a stronger takeaway']
+        : score >= 50
+          ? ['Use a clearer structure', 'Be more specific', 'Include one outcome or metric']
+          : ['Organize the answer', 'Add concrete details', 'Mention the main takeaway'],
+    missingPoints: ['Key technical details', 'Practical trade-offs', 'Concrete outcome or example'],
+    correctAnswer:
+      request.category === 'behavioral'
+        ? 'Use the STAR format and clearly explain the situation, task, action, and result.'
+        : 'Explain the core approach first, then mention trade-offs, constraints, and the most important takeaway.',
+    skillsAssessed: ['Communication', 'Problem Solving', 'Clarity'],
+    followUpQuestion: 'Can you explain your approach in one sentence with a concrete example?',
+  };
+}
+
 export async function evaluateInterviewAnswer(
   request: InterviewEvaluationRequest,
 ): Promise<InterviewEvaluationResult> {
@@ -153,14 +202,21 @@ ANSWER STYLE: ${CATEGORY_ANSWER_STYLE[request.category]}
 
 Return valid JSON only.`;
 
-  const evaluation = await geminiJSON<InterviewEvaluationResult>(
-    SYSTEM_PROMPT,
-    userPrompt,
-    {
-      temperature: 0.15,
-      maxTokens: 1800,
-    }
-  );
+  let evaluation: InterviewEvaluationResult;
+
+  try {
+    evaluation = await geminiJSON<InterviewEvaluationResult>(
+      SYSTEM_PROMPT,
+      userPrompt,
+      {
+        temperature: 0.15,
+        maxTokens: 1800,
+      }
+    );
+  } catch (err) {
+    console.warn('[interview.service] Gemini unavailable, using fallback evaluation', err);
+    evaluation = buildFallbackEvaluation(request);
+  }
 
   // Validate score
   if (typeof evaluation.score !== "number") {
