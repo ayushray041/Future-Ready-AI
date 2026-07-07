@@ -13,47 +13,127 @@ import type {
 } from '@/types/interview';
 
 const CATEGORY_ANSWER_STYLE: Record<InterviewCategoryId, string> = {
-  dsa: 'an optimal algorithm explanation that describes the algorithm, complexity, edge cases, and trade-offs.',
-  system: 'an architecture-level design answer that covers major components, data flow, scaling, availability, and trade-offs.',
-  behavioral: 'a STAR-style answer that highlights Situation, Task, Action, and Result with measurable outcomes.',
-  ml: 'a conceptually correct explanation that covers model behavior, evaluation, metrics, and practical trade-offs.',
-  frontend: 'a technically correct implementation answer that includes framework behavior, performance, and practical constraints.',
-  hr: 'a professional interview answer that demonstrates motivation, culture fit, and a growth mindset.',
+  dsa:
+    'Explain the optimal algorithm, time complexity, space complexity and edge cases in under 180 words.',
+
+  system:
+    'Explain architecture, scalability, bottlenecks and trade-offs in under 180 words.',
+
+  behavioral:
+    'Answer using the STAR method in under 150 words.',
+
+  ml:
+    'Explain the concept, evaluation metrics and practical trade-offs in under 180 words.',
+
+  frontend:
+    'Explain implementation, browser behaviour, optimization and performance in under 180 words.',
+
+  hr:
+    'Provide a professional HR interview answer in under 120 words.',
 };
 
-const SYSTEM_PROMPT = `You are a trusted interview evaluator for FutureReady AI. Evaluate the candidate's answer using the actual question and the answer the candidate provided. Do not assume facts not present in the answer. Be honest, specific, and generate a concise, high-quality response.
+const SYSTEM_PROMPT = `
+You are FutureReady AI, an expert technical interviewer and evaluator.
 
-Return EXACTLY this JSON object and nothing else:
+Evaluate ONLY the candidate's answer based on the given question.
+
+Return ONLY a valid JSON object with this exact structure:
+
 {
-  "score": <number 0-100>,
-  "verdict": "Excellent" | "Good" | "Average" | "Poor",
-  "feedback": "<one paragraph summary of strengths and weaknesses>",
-  "strengths": ["<positive point 1>", "<positive point 2>"],
-  "improvements": ["<specific improvement 1>", "<specific improvement 2>"],
-  "missingPoints": ["<important concept or detail missing from the answer>", "<additional missing point>"],
-  "correctAnswer": "<AI generated ideal answer in the appropriate interview style>"
+  "score": 0,
+  "verdict": "Excellent",
+  "feedback": "",
+  "strengths": [],
+  "improvements": [],
+  "missingPoints": [],
+  "correctAnswer": "",
+  "skillsAssessed": [],
+  "followUpQuestion": ""
 }
+Evaluation Rules:
 
-Evaluation rules:
-- Score must be based on answer quality, completeness, technical accuracy, and relevance.
-- Use the category style guidance below to produce the model answer.
-- Do not fabricate a score or review unrelated topics.
-- Use the exact verdict mapping: 90-100 Excellent, 75-89 Good, 50-74 Average, below 50 Poor.
-- All string values must be valid JSON strings. Escape any line breaks or special characters as needed.
-- Do not wrap the response in markdown, code fences, or extraneous text.
+- Score must be between 0 and 100.
+- Verdict mapping:
+  - 90-100 = Excellent
+  - 75-89 = Good
+  - 50-74 = Average
+  - 0-49 = Poor
+
+- Feedback:
+  - Maximum 80 words.
+  - Mention strengths and weaknesses.
+
+- Strengths:
+  - Maximum 3 points.
+  - Each point under 15 words.
+
+- Improvements:
+  - Maximum 3 actionable points.
+  - Each point under 15 words.
+
+- MissingPoints:
+  - Maximum 5 short concepts.
+
+  - skillsAssessed:
+  Exactly 3 interview skills.
+
+- followUpQuestion:
+  Generate one relevant follow-up interview question.
+
+- CorrectAnswer:
+  - Maximum 80 words.
+  - Explain only the ideal approach.
+  - Mention time complexity only if applicable.
+  - Do not include code.
+  - Do not include pseudocode.
+  - Use one concise paragraph.
+  - skillsAssessed:
+  - Exactly 3 interview skills.
+  - Examples:
+    - Problem Solving
+    - Communication
+    - Time Complexity
+    - Data Structures
+    - System Design
+    - Debugging
+
+- followUpQuestion:
+  - Generate exactly ONE relevant follow-up interview question.
+  - Maximum 20 words.
+
+  Return EXACTLY:
+
+- strengths -> exactly 3 items
+- improvements -> exactly 3 items
+- missingPoints -> exactly 3 items
+- skillsAssessed -> exactly 3 items
+
+Never repeat the original question.
+Never repeat the student's answer.
+Keep every response concise.
+
+If the student's answer is very short, evaluate only what is present.
+Do NOT expand or imagine missing information.
+
+Never repeat the question.
+Never repeat the student's answer.
+
+If answer length < 5 characters
+
+Return
+
+score = 0
+
+verdict = Poor
+
+Do not generate CorrectAnswer longer than 40 words.
+
+Return ONLY valid JSON.
+
+No markdown.
+No code fences.
+No explanations.
 `;
-
-function buildPrompt(request: InterviewEvaluationRequest) {
-  return `${SYSTEM_PROMPT}
-
-CATEGORY: ${request.category}
-DIFFICULTY: ${request.difficulty}
-QUESTION: ${request.question}
-STUDENT ANSWER: ${request.userAnswer}
-ANSWER STYLE: ${CATEGORY_ANSWER_STYLE[request.category]}
-
-Return valid JSON only.`;
-}
 
 export function mapScoreToVerdict(score: number): InterviewEvaluationResult['verdict'] {
   if (score >= 90) return 'Excellent';
@@ -74,27 +154,61 @@ ANSWER STYLE: ${CATEGORY_ANSWER_STYLE[request.category]}
 Return valid JSON only.`;
 
   const evaluation = await geminiJSON<InterviewEvaluationResult>(
-  SYSTEM_PROMPT,
-  userPrompt,
-  {
-    temperature: 0.2,
-    maxTokens: 3000,
-  }
-);
+    SYSTEM_PROMPT,
+    userPrompt,
+    {
+      temperature: 0.15,
+      maxTokens: 1800,
+    }
+  );
 
-  if (
-    typeof evaluation.score !== 'number' ||
-    !['Excellent', 'Good', 'Average', 'Poor'].includes(evaluation.verdict) ||
-    !Array.isArray(evaluation.strengths) ||
-    !Array.isArray(evaluation.improvements) ||
-    !Array.isArray(evaluation.missingPoints) ||
-    typeof evaluation.feedback !== 'string' ||
-    typeof evaluation.correctAnswer !== 'string'
-  ) {
-    throw new Error('Gemini returned an invalid interview evaluation');
-  }
+  // Validate score
+  if (typeof evaluation.score !== "number") {
+  throw new Error("Gemini returned an invalid score.");
+}
 
-  return evaluation;
+// Keep score between 0-100
+evaluation.score = Math.max(0, Math.min(100, Math.round(evaluation.score)));
+
+// Always calculate verdict ourselves
+evaluation.verdict = mapScoreToVerdict(evaluation.score);
+
+// Prevent null arrays
+evaluation.strengths = Array.isArray(evaluation.strengths)
+  ? evaluation.strengths.slice(0, 3)
+  : [];
+
+evaluation.improvements = Array.isArray(evaluation.improvements)
+  ? evaluation.improvements.slice(0, 3)
+  : [];
+
+evaluation.missingPoints = Array.isArray(evaluation.missingPoints)
+  ? evaluation.missingPoints.slice(0, 3)
+  : [];
+
+// NEW FIELD
+evaluation.skillsAssessed = Array.isArray(evaluation.skillsAssessed)
+  ? evaluation.skillsAssessed.slice(0, 3)
+  : [];
+
+// Prevent missing strings
+evaluation.feedback =
+  typeof evaluation.feedback === "string"
+    ? evaluation.feedback.trim()
+    : "";
+
+evaluation.correctAnswer =
+  typeof evaluation.correctAnswer === "string"
+    ? evaluation.correctAnswer.trim()
+    : "";
+
+// NEW FIELD
+evaluation.followUpQuestion =
+  typeof evaluation.followUpQuestion === "string"
+    ? evaluation.followUpQuestion.trim()
+    : "";
+
+return evaluation;
 }
 
 export async function persistInterviewEvaluation(

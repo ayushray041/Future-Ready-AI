@@ -52,6 +52,9 @@ interface FeedbackResult {
   improvements: string[];
   missingPoints: string[];
   correctAnswer: string;
+
+  skillsAssessed: string[];
+  followUpQuestion: string;
 }
 
 const CATEGORIES: Category[] = [
@@ -148,12 +151,47 @@ export default function InterviewPage() {
   const [qIndex, setQIndex] = useState(0);
   const [answer, setAnswer] = useState('');
   const [recording, setRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackResult | null>(null);
   const [sessionResults, setSessionResults] = useState<FeedbackResult[]>([]);
   const { display: timerDisplay, reset: resetTimer, elapsed } = useTimer(view === 'session' && !submitted);
   const { firebaseUser } = useAuth();
+  useEffect(() => {
+  if (typeof window === "undefined") return;
+
+  const SpeechRecognition =
+    (window as any).SpeechRecognition ||
+    (window as any).webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    console.log("Speech Recognition not supported");
+    return;
+  }
+
+  const recognition = new SpeechRecognition();
+
+  recognition.lang = "en-US";
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  recognition.onresult = (event: any) => {
+    let transcript = "";
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      transcript += event.results[i][0].transcript;
+    }
+
+    setAnswer(transcript);
+  };
+
+  recognition.onend = () => {
+    setRecording(false);
+  };
+
+  recognitionRef.current = recognition;
+}, []);
   const { submitInterviewAnswer } = useInterview();
 
   const questions = selectedCategory ? QUESTIONS[selectedCategory.id] : [];
@@ -374,7 +412,17 @@ export default function InterviewPage() {
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setRecording(p => !p)}
+                  onClick={() => {
+  if (!recognitionRef.current) return;
+
+  if (!recording) {
+    recognitionRef.current.start();
+    setRecording(true);
+  } else {
+    recognitionRef.current.stop();
+    setRecording(false);
+  }
+}}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-all
                     ${recording ? 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/30' : 'bg-white/5 text-slate-400 hover:text-slate-200'}`}>
                   {recording ? <><MicOff className="h-3.5 w-3.5" /> Stop recording</> : <><Mic className="h-3.5 w-3.5" /> Voice answer</>}
@@ -448,10 +496,45 @@ export default function InterviewPage() {
               </ul>
             </div>
 
-            <div className="rounded-3xl bg-slate-950/70 border border-white/5 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 mb-3">Recommended Answer</p>
-              <p className="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">{feedback.correctAnswer}</p>
-            </div>
+            {/* Recommended Answer */}
+<div className="rounded-3xl bg-slate-950/70 border border-white/5 p-4">
+  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 mb-3">
+    Recommended Answer
+  </p>
+
+  <p className="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
+    {feedback.correctAnswer}
+  </p>
+</div>
+
+{/* Skills Assessed */}
+<div className="rounded-3xl bg-slate-950/70 border border-white/5 p-4">
+  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 mb-3">
+    Skills Assessed
+  </p>
+
+  <div className="flex flex-wrap gap-2">
+    {feedback.skillsAssessed?.map((skill, i) => (
+      <span
+        key={i}
+        className="px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-300 text-xs"
+      >
+        {skill}
+      </span>
+    ))}
+  </div>
+</div>
+
+{/* AI Follow-Up Question */}
+<div className="rounded-3xl bg-slate-950/70 border border-white/5 p-4">
+  <p className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 mb-3">
+    AI Follow-Up Question
+  </p>
+
+  <p className="text-sm text-slate-300">
+    {feedback.followUpQuestion}
+  </p>
+</div>
 
             <div className="flex justify-between pt-2">
               <button onClick={() => { setSubmitted(false); setAnswer(''); setFeedback(null); }}
