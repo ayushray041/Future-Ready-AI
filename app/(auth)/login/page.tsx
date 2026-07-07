@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Zap, ArrowRight, Loader2 } from 'lucide-react';
 import { authService } from '@/services/auth.service';
+import { useAuth } from '@/hooks/useAuth';
 
 function validate(email: string, password: string) {
   const errs: Record<string, string> = {};
@@ -17,6 +18,7 @@ function validate(email: string, password: string) {
 
 export default function LoginPage() {
   const router = useRouter();
+  const { refreshProfile } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -32,9 +34,10 @@ export default function LoginPage() {
     setFirebaseError('');
     setLoading(true);
     try {
-  await authService.signIn(email, password);
-  router.push('/dashboard');
-} catch (err: unknown) {
+      await authService.signIn(email, password);
+      await refreshProfile();
+      router.push('/dashboard');
+    } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Sign-in failed. Check your credentials.';
       setFirebaseError(msg);
     } finally {
