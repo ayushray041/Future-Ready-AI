@@ -32,7 +32,7 @@ const STEPS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { firebaseUser, loading: authLoading } = useAuth();
+  const { firebaseUser, loading: authLoading, refreshProfile } = useAuth();
   const [step, setStep] = useState(0);
   const [goals, setGoals] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
@@ -62,6 +62,7 @@ export default function OnboardingPage() {
         skills,
         salaryExpectation: salary,
       });
+      await refreshProfile();
       router.push('/dashboard');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save your profile. Please try again.');

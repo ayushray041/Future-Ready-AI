@@ -59,7 +59,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function refreshProfile() {
-    if (firebaseUser) await loadProfile(firebaseUser);
+    const user = auth.currentUser;
+    if (user) await loadProfile(user);
   }
 
   return (

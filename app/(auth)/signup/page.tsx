@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Zap, ArrowRight, Loader2, Check } from 'lucide-react';
 import { authService } from '@/services/auth.service';
 import { createUser } from '@/services/user.service';
+import { useAuth } from '@/hooks/useAuth';
 
 const CAREER_OPTIONS = [
   'AI Engineer', 'Software Engineer', 'Data Scientist',
@@ -32,6 +33,7 @@ function StrengthBar({ password }: { password: string }) {
 
 export default function SignupPage() {
   const router = useRouter();
+  const { refreshProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
     name: '', email: '', password: '', confirmPassword: '',
@@ -70,35 +72,36 @@ export default function SignupPage() {
     setFirebaseError('');
     setLoading(true);
     try {
-  const cred = await authService.signUp(
-  form.email,
-  form.password
-);
+      const cred = await authService.signUp(
+        form.email,
+        form.password
+      );
 
-await createUser({
-  uid: cred.user.uid,
-  displayName: form.name,
-  email: form.email,
+      await createUser({
+        uid: cred.user.uid,
+        displayName: form.name,
+        email: form.email,
 
-  college: form.college,
-  year: form.year,
-  branch: form.branch,
+        college: form.college,
+        year: form.year,
+        branch: form.branch,
 
-  targetCareer: form.career,
+        targetCareer: form.career,
 
-  salaryExpectation: '',
-  skills: [],
-  goals: [],
+        salaryExpectation: '',
+        skills: [],
+        goals: [],
 
-  careerScore: 0,
-  streak: 0,
+        careerScore: 0,
+        streak: 0,
 
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-});
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
 
-router.push('/onboarding');
-} catch (err: unknown) {
+      await refreshProfile();
+      router.push('/onboarding');
+    } catch (err: unknown) {
       setFirebaseError(err instanceof Error ? err.message : 'Registration failed. Try again.');
     } finally {
       setLoading(false);
