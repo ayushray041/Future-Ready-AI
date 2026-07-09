@@ -88,16 +88,23 @@ export async function POST(req: NextRequest) {
       saved: true,
     });
   } catch (err) {
-    console.error('[POST /api/interview]', err);
+  console.error("========== INTERVIEW API ERROR ==========");
+  console.error(err);
 
-    const message =
-      err instanceof Error
-        ? err.message
-        : 'Interview evaluation failed';
-
-    return NextResponse.json(
-      { error: message },
-      { status: 500 }
-    );
+  if (err instanceof Error) {
+    console.error("MESSAGE:", err.message);
+    console.error("STACK:", err.stack);
   }
+
+  return NextResponse.json(
+    {
+      error: err instanceof Error
+        ? err.message
+        : "Interview evaluation failed",
+    },
+    {
+      status: 500,
+    }
+  );
+}
 }

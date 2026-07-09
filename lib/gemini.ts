@@ -45,93 +45,63 @@ export async function geminiChat(
     contents: [...history, { role: 'user', parts: [{ text: userMsg }] }],
     generationConfig: {
       temperature: opts.temperature ?? 0.7,
-     maxOutputTokens: opts.maxTokens ?? 1800,
+      maxOutputTokens: opts.maxTokens ?? 1800,
       topK: 40,
       topP: 0.95,
       responseMimeType: 'application/json',
     },
   };
 
-  let res: Response | undefined;
+  let res: Response;
 
-for (let attempt = 1; attempt <= 3; attempt++) {
-  res = await fetch(`${BASE_URL}?key=${getKey()}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    res = await fetch(`${BASE_URL}?key=${getKey()}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (
-    res.ok ||
-    res.status !== 429 &&
-    res.status !== 500 &&
-    res.status !== 503
-  ) {
-    break;
+    if (
+      res.ok ||
+      (res.status !== 429 &&
+        res.status !== 500 &&
+        res.status !== 503)
+    ) {
+      break;
+    }
+
+    console.warn(`Gemini retry ${attempt}/3`);
+
+    await new Promise((resolve) =>
+      setTimeout(resolve, attempt * 1000)
+    );
   }
 
-  console.warn(`Gemini retry ${attempt}/3`);
-
-  await new Promise((resolve) =>
-    setTimeout(resolve, attempt * 1000)
-  );
-}
-
-if (!res) {
-  throw new Error('Gemini API request failed before a response was received.');
-}
-
-const data: GeminiResponse = await res.json();
+const data: GeminiResponse = await (res as Response).json();
 
  
   const candidate = data.candidates?.[0];
 
-if (!candidate) {
-  // Handle API quota errors
-  if (data.error) {
-    if (data.error.code === 429) {
-      throw new Error(
-  "AI service is temporarily busy. Please try again after a minute."
-);
-    }
-
-    throw new Error(data.error.message);
-  }
-
-  throw new Error(
-  "AI could not generate an evaluation. Please try again."
-);
-}
-
-// Allow truncated responses.
-// JSON recovery logic below will handle them.
-if (
-  candidate.finishReason !== "STOP" &&
-  candidate.finishReason !== "MAX_TOKENS"
-) {
-  
-}
-
-  if (!res.ok || data.error) {
+  if (!candidate) {
     throw new Error(
-      `Gemini API error ${res.status}: ${data.error?.message ?? 'unknown error'}`,
+      'AI could not generate an evaluation. Please try again.'
     );
   }
 
   const text =
-  data.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text ?? "")
-    .join("") ?? "";
+    candidate.content?.parts
+      ?.map((part) => part.text ?? '')
+      .join('') ?? '';
 
-if (!text.trim()) {
-  throw new Error(
-  "AI returned an empty response. Please retry."
-);
-}
+  if (!text.trim()) {
+    throw new Error(
+      'AI returned an empty response. Please retry.'
+    );
+  }
 
-return text;
+  return text;
 }
 
 // ── JSON-enforced generation ─────────────────────────────────
