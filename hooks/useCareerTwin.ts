@@ -98,4 +98,4 @@ export function useCareerTwin(): UseCareerTwinReturn {
   }, [generate]);
 
   return { twin, loading, error, generate, loadOrGenerate };
-}
+} 
