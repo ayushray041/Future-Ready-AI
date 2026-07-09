@@ -52,7 +52,7 @@ export async function geminiChat(
     },
   };
 
-  let res: Response;
+  let res: Response | null = null;
 
   for (let attempt = 1; attempt <= 3; attempt++) {
     res = await fetch(`${BASE_URL}?key=${getKey()}`, {
@@ -79,7 +79,11 @@ export async function geminiChat(
     );
   }
 
-const data: GeminiResponse = await (res as Response).json();
+  if (!res) {
+    throw new Error('Failed to get a response from Gemini API');
+  }
+
+const data: GeminiResponse = await res.json();
 
  
   const candidate = data.candidates?.[0];
