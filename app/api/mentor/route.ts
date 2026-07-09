@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
       temperature: 0.75,
       maxTokens:   1200,
     });
-
+    console.log("MENTOR RESPONSE:", reply);
     return NextResponse.json({ reply });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Mentor API failed';
