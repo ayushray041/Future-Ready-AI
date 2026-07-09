@@ -48,7 +48,6 @@ export async function geminiChat(
       maxOutputTokens: opts.maxTokens ?? 1800,
       topK: 40,
       topP: 0.95,
-      responseMimeType: 'application/json',
     },
   };
 
