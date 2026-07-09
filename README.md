@@ -2,7 +2,7 @@
 
 A production-ready, dark futuristic dashboard built with Next.js 15, Tailwind CSS, and shadcn/ui. Designed as an AI-powered career companion with sophisticated visualizations, analytics, and career planning tools.
 
-## Features
+## Features-
 
 ✨ **Complete Dashboard Implementation**
 - Responsive sidebar navigation with 8 main sections
@@ -34,7 +34,7 @@ A production-ready, dark futuristic dashboard built with Next.js 15, Tailwind CS
 - Progress bars with gradient fills
 - Career roadmap timeline with status indicators
 
-## Tech Stack
+## Tech Stack-
 
 - **Framework**: Next.js 15 (App Router)
 - **Styling**: Tailwind CSS v4
@@ -44,7 +44,7 @@ A production-ready, dark futuristic dashboard built with Next.js 15, Tailwind CS
 - **TypeScript**: Full type safety
 - **Analytics**: Vercel Analytics
 
-## Project Structure
+## Project Structure-
 
 ```
 components/
@@ -63,7 +63,7 @@ app/
 └── globals.css           # Global styles & theme config
 ```
 
-## Getting Started
+## Getting Started-
 
 ### Installation
 
@@ -92,7 +92,7 @@ pnpm start    # Start production server
 pnpm lint     # Run ESLint
 ```
 
-## Key Components
+## Key Components-
 
 ### Sidebar Navigation
 - 8 navigation items with active state indicator
@@ -127,7 +127,7 @@ pnpm lint     # Run ESLint
 - **Career Momentum**: Progress bars for Projects, GitHub, Interviews, Learning
 - **Skill Growth**: Bar chart showing skill proficiency (DSA, Dev, AI, Cloud)
 
-## Color Palette
+## Color Palette-
 
 | Color | Usage | Values |
 |-------|-------|--------|
@@ -140,13 +140,13 @@ pnpm lint     # Run ESLint
 | Warning | Amber elements | `#f59e0b` |
 | Danger | Red elements | `#ef4444` |
 
-## Responsive Breakpoints
+## Responsive Breakpoints-
 
 - **Mobile**: Full-width with hamburger menu (< 768px)
 - **Tablet**: Sidebar visible, adjusted padding (768px - 1024px)
 - **Desktop**: Full layout with all features (> 1024px)
 
-## Performance Optimizations
+## Performance Optimizations-
 
 - Client components use `'use client'` directive where needed
 - Server components for static content
@@ -155,14 +155,14 @@ pnpm lint     # Run ESLint
 - CSS classes optimized with Tailwind
 - No unnecessary animations on mobile
 
-## Browser Support
+## Browser Support-
 
 - Chrome/Edge: Latest 2 versions
 - Firefox: Latest 2 versions
 - Safari: Latest 2 versions
 - Mobile browsers: iOS Safari 12+, Chrome Mobile
 
-## Deployment
+## Deployment-
 
 ### Vercel (Recommended)
 ```bash
@@ -181,7 +181,7 @@ RUN pnpm build
 CMD ["pnpm", "start"]
 ```
 
-## Development Notes
+## Development Notes-
 
 ### Adding New Features
 
@@ -216,14 +216,14 @@ CMD ["pnpm", "start"]
 - Maintain consistency with existing patterns
 - Use responsive prefixes (md:, lg:)
 
-## Known Limitations
+## Known Limitations-
 
 - Charts are static (not connected to real data)
 - Navigation links are placeholder hrefs (#)
 - Sidebar navigation currently shows single active state
 - Mobile menu doesn't persist across page loads
 
-## Future Enhancements
+## Future Enhancements-
 
 - Real data integration with API
 - Interactive chart interactions
@@ -234,11 +234,11 @@ CMD ["pnpm", "start"]
 - User profile settings page
 - Export analytics to PDF
 
-## License
+## License-
 
 MIT License - Feel free to use this dashboard in your projects.
 
-## Credits
+## Credits-
 
 Built with ❤️ using:
 - Next.js 15
