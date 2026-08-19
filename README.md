@@ -1,6 +1,6 @@
 # FutureReady - AI Career OS Dashboard
 
-A production-ready, dark futuristic dashboard built with Next.js 15, Tailwind CSS, and shadcn/ui. Designed as an AI-powered career companion with sophisticated visualizations, analytics, and career planning tools.
+A production-ready educational dashboard built with Next.js 15, Tailwind CSS, and shadcn/ui. Designed as an AI-powered career companion with sophisticated visualizations, analytics, and career planning tools.
 
 ## Features-
 
